@@ -1,0 +1,630 @@
+---
+title: "STAT33600 Homework 1"
+author: "Sarah Adilijiang"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+## NOTE: In this homework, the ACF has been discussed as autocovariance function $\gamma(h)$ which is NOT correct! The ACF should be the autocorrelation fuction $\rho(h)$
+
+
+## 1.2
+
+### (a) & (b)
+
+signal-plus-noise model: $x_t = s_t + w_t$ for $t=1,...,200$, where $w_t$ is Gaussian white noise with $\sigma^2_w=1$
+
+```{r, fig.height=8, fig.width=8}
+par(mfrow=c(2,1))
+# series (a)
+s = c( rep(0,100), 10*exp(-(1:100)/20)*cos(2*pi*1:100/4) )
+x = s + rnorm(200,0,1)
+plot.ts(x, xlab='t', main='series (a)')
+# series (b)
+s = c( rep(0,100), 10*exp(-(1:100)/200)*cos(2*pi*1:100/4) )
+x = s + rnorm(200,0,1)
+plot.ts(x, xlab='t', main='series (b)')
+```
+
+
+### (c)
+Both the sereis (a) and (b) have two phase of signals, the first phase has lower amplitude, and the second phase has much larger amplitude than the first phase. Comparing the general appearence of the series (a) and (b) with earthquake series and the explosion series, we can see that in series (a), the signal decays much faster than it does in series (b), so series (a) looks much more like explosion series, and series (b) looks like earthquake series. This can be also shown by plotting the modulator function decay rate.
+
+In series (a) and (b), the only difference lies in the modulator part of the functions. So below I draw the two modulator functions in (a) and (b). We can again see that the modulator function decays much faster in series (a) than (b), which explains the difference in waveforms in series (a) and (b).
+```{r, fig.height=4, fig.width=8}
+par(mfrow=c(1,2))
+# modulator (a)
+plot.ts(exp(-(1:100)/20), xlab='t', main='modulator (a)')
+# modulator (b)
+plot.ts(exp(-(1:100)/200), xlab='t', main='modulator (b)')
+```
+
+
+## 1.3
+
+Moving Average Filter: $v_t = (x_t + x_{t-1} + x_{t-2} + x_{t-3})/4$ 
+
+where $x_t$ are generated from below functions in (a) to (c)
+
+### (a)
+Autoregression: $x_t = -0.9x_{t-2} + w_t$ with $\sigma_w=1$
+```{r}
+# Autoregression
+w = rnorm(150,0,1) # 50 extra to avoid startup problems
+x = filter(w, filter=c(0, -0.9), method="recursive")[-(1:50)] # remove first 50
+
+# Moving Average
+v = filter(x, filter=rep(1/4,4), sides=1)
+
+plot.ts(x, xlab='t', ylab='', main='autoregression')
+lines(v, col=2, lty=2)
+legend('bottomright', legend='MA(4)', col=2, lty=2)
+```
+
+Comments:
+
+Since $X_t$ is strongly negatively correlated with $X_{t-2}$ in the autoregression function, the series $X_t$ oscillates regularly around zero. And the moving average filter MA(4) made the series much smoother.
+
+
+### (b)
+cosine function: $x_t = \cos(2\pi t/4)$
+```{r}
+# cosine function
+x = cos(2*pi*(1:100)/4)
+
+# Moving Average
+v = filter(x, filter=rep(1/4,4), sides=1)
+
+plot.ts(x, xlab='t', ylab='', main='cosine function')
+lines(v, col=2, lty=2)
+legend('bottomright', legend='MA(4)', col=2, lty=2)
+```
+
+Comments:
+
+Using the cosine function for series, the $X_t$ oscillates regularly around zero and has a periodic form with period of 4. However, here the the moving average filter MA(4) completely smoothed the series into a constant line at zero. This is because there is no noise term in the series so the oscillations were cancelled out.
+
+
+### (c)
+cosine function with added N(0,1) noise: $x_t = \cos(2\pi t/4) + w_t$
+```{r}
+# cosine function + noise
+x = cos(2*pi*(1:100)/4) + rnorm(100,0,1)
+
+# Moving Average
+v = filter(x, filter=rep(1/4,4), sides=1)
+
+plot.ts(x, xlab='t', ylab='', main='cosine function plus noise')
+lines(v, col=2, lty=2)
+legend('bottomright', legend='MA(4)', col=2, lty=2)
+```
+
+Comments:
+
+Using the cosine function with a noise for series, the $X_t$ oscillates not that regularly around zero. Now the the moving average filter MA(4) made the series much more smoother but not into a constant line because now there is a noise term added in the series.
+
+
+### (d)
+Comparing the results from (a) to (c), we can see that the moving average filter can effectively smoothes the time series sequences that fluactuates and generates waveforms with spikes. Particularly, in (b), when there is no noise term in the series, the moving average filter completely smooths the waveforms into a constant line. And for (a) and (c), the moving average filter smoothes (a) better than (c). This is maybe because there is a strong negavive correlation between $X_t$ and $X_{t-2}$ (or strong positive correlation between $X_t$ and $X_{t-4}$) in (a).
+
+
+
+## 1.6
+
+### (a)
+$x_t = \beta_1 + \beta_2t + w_t$ where $\beta_1$ and $\beta_2$ are known contants and $w_t$ is white noise process with variance $\sigma_w^2$
+
+So $E(x_t) = E(\beta_1 + \beta_2t + w_t) = \beta_1 + \beta_2t$ which depends on time $t$. Since the mean function is not a constant, we can conclude that $x_t$ is not stationary.
+
+
+### (b)
+$y_t = x_t - x_{t-1} = \beta_1 + \beta_2t + w_t - \beta_1 - \beta_2(t-1) - w_{t-1} = \beta_2 + w_t - w_{t-1}$
+
+So $\mu_t = E(y_t) = E(\beta_2 + w_t - w_{t-1}) = \beta_2$, the mean function is a constant and does not depend on time $t$.
+
+And $\gamma(s,t) =  Cov(y_s,y_t) = Cov(\beta_2 + w_s - w_{s-1}, \ \beta_2 + w_t - w_{t-1}) = Cov(w_s - w_{s-1}, \ w_t - w_{t-1}) = E[(w_s - w_{s-1})(w_t - w_{t-1})]$
+
+* When $s=t$, $\gamma(s,t) = E[(w_s - w_{s-1})^2] = 2\sigma_w^2$
+* When $|s-t|=1$, $\gamma(s,t) = E(- w_{s-1}^2) = -\sigma_w^2$
+* When $|s-t| \geq 2$, $\gamma(s,t) = 0$
+
+Therefore, 
+$$
+\gamma(s,t) = \left\{ \begin{array}{ll} 
+2\sigma_w^2, & if \ |s-t|=0  \\
+-\sigma_w^2, & if \ |s-t|=1  \\
+0, & if \ |s-t|\geq 2
+\end{array} \right. 
+$$
+This means that the autocovariance function $\gamma(s,t)$ only depends on $s$ and $t$ only throuth their difference $|s-t|$. 
+
+Based on these two conclusions, then we can prove that $y_t$ is (weakly) stationary.
+
+
+### (c)
+Mean function:
+$$E(v_t) = E[\frac{1}{(2q+1)} \sum\limits_{j=-q}^{q}x_{t-j}] = \frac{1}{(2q+1)} \sum\limits_{j=-q}^{q} E(x_{t-j}) = \frac{1}{(2q+1)} \sum\limits_{j=-q}^{q} E[\beta_1+\beta_2(t-j)+w_{t-j}]$$
+$$=\frac{1}{(2q+1)} [(2q+1)(\beta_1+\beta_2t) - \beta_2 \times0 + 0] = \beta_1+\beta_2t$$
+
+Autocovariance function:
+$$\gamma(s,t) = Cov(v_s,v_t) = Cov \left( \frac{1}{(2q+1)} \sum\limits_{i=-q}^{q}x_{s-i}, \ \frac{1}{(2q+1)} \sum\limits_{j=-q}^{q}x_{t-j} \right)$$
+$$= \frac{1}{(2q+1)^2} Cov \left( \sum\limits_{i=-q}^{q}x_{s-i}, \ \sum\limits_{j=-q}^{q}x_{t-j} \right) = \frac{1}{(2q+1)^2} \sum\limits_{i=-q}^{q} \sum\limits_{j=-q}^{q} Cov(x_{s-i},x_{t-j}) $$
+$$= \frac{1}{(2q+1)^2} \sum\limits_{i=-q}^{q} \sum\limits_{j=-q}^{q} Cov \left( \beta_1+\beta_2(s-i)+w_s,\ \beta_1+\beta_2(t-j)+w_t \right)$$
+$$= \frac{1}{(2q+1)^2} \sum\limits_{i=-q}^{q} \sum\limits_{j=-q}^{q} Cov(w_{s-i}, w_{t-j})$$
+
+* When $|s-t|>2q$, $\gamma(s,t) = 0$
+* When $|s-t|\leq2q$, $\gamma(s,t) = \frac{1}{(2q+1)^2} (2q+1-|s-t|) \sigma_w^2$
+
+Therefore, 
+$$
+\gamma(s,t) = \left\{ \begin{array}{ll} 
+\frac{(2q+1-|s-t|) \sigma_w^2}{(2q+1)^2}, &  if \ |s-t|\leq 2q  \\
+0, &  if \ |s-t| > 2q
+\end{array} \right. 
+$$
+
+
+
+## 1.8
+
+Random walk with drift model: $x_t = \delta + x_{t-1} +w_t$ with $x_0=0$, where $w_t$ is white noise with variance $\sigma_w^2$
+
+### (a)
+Since $x_t - x_{t-1} = \delta + w_t$ for $t=1,2,...$, and $x_0=0$, so:
+$$x_t = x_t - x_0 = \sum\limits_{k=1}^t (x_k - x_{k-1}) = \sum\limits_{k=1}^t (\delta + w_k) = \delta t + \sum\limits_{k=1}^t w_k$$
+
+
+### (b)
+Mean function:
+$$\mu_t = E(x_t) = E(\delta t + \sum\limits_{k=1}^t w_k) = \delta t$$
+
+Autocovariance function:
+$$\gamma(s,t) = Cov(x_s, x_t) = Cov(\delta s + \sum\limits_{i=1}^s w_i, \ \delta t + \sum\limits_{k=1}^t w_k) = \sum\limits_{i=1}^s \sum\limits_{k=1}^t Cov(w_i,w_k)= \sigma_w^2 \ min(s,t)$$
+
+
+### (c)
+From (b), we have $\mu_t = E(x_t) = \delta t$, so the mean function is not constant and depends on time $t$. 
+
+Also, the autocovariance function $\gamma(s,t) = Cov(x_s, x_t) = \sigma_w^2 \ min(s,t)$, which also not only depends on difference $|s-t|$, but depends on the actual values of $s$ and $t$. 
+
+Since both of these two conditions are not valid for $x_t$, thus we can conclude that $x_t$ is not stationary.
+
+
+### (d)
+Autocorrelation function:
+$$\rho_x(t-1, t) = \frac{\gamma(t-1,t)}{\sqrt{\gamma(t-1,t-1)\gamma(t,t)}} = \frac{\sigma_w^2(t-1)}{\sqrt{\sigma_w^2(t-1)\sigma_w^2t}} = \sqrt{\frac{t-1}{t}} \to 1 \ \ (\text{as} \ t \to \infty )$$
+
+This implicates that when time $t$ is large enough, the correlation between $x_t$ and $x_{t-1}$ is close to 1, which means that we can predict $x_t$ perfectly from $x_s$ through a linear relationship and that the series changes very slowly. 
+
+
+### (e)
+Make the transformation: $y_t = x_t - x_{t-1}$
+
+So $\mu_t = E(y_t) = E(x_t - x_{t-1}) = E(\delta+w_t) = \delta$, the mean function is a constant that does not depend on time $t$.
+
+And $\gamma(s,t) =  Cov(y_s,y_t) = Cov(\delta+w_s, \ \delta+w_t) = Cov(w_s, w_t)$
+
+Therefore, 
+$$
+\gamma(s,t) = \left\{ \begin{array}{ll} 
+\sigma_w^2, & if \ |s-t|=0  \\
+0, & if \ |s-t|>0
+\end{array} \right. 
+$$
+This means that the autocovariance function $\gamma(s,t)$ only depends on $s$ and $t$ only throuth their difference $|s-t|$. 
+
+Based on these two conclusions, then we can prove that $y_t$ is (weakly) stationary.
+
+
+
+## 1.9
+$x_t = U_1\sin(2\pi\omega_0t) + U_2\cos(2\pi\omega_0t)$, where $U_1$ and $U_2$ are independent with $E(U_1)=E(U_2)=0$ and $E(U_1^2)=E(U_2^2)=\sigma^2$.
+
+So $\mu_t = E(x_t) = \sin(2\pi\omega_0t)E(U_1) + \cos(2\pi\omega_0t)E(U_2) = 0$, the mean function is a constant that does not depend on time $t$.
+
+And autocovariance function:
+$$\gamma(h) =  Cov(x_{t+h},x_t) = E(x_{t+h}x_t) - E(x_{t+h})E(x_t) = E(x_{t+h}x_t)$$
+$$= E\{[U_1\sin(2\pi\omega_0(t+h)) + U_2\cos(2\pi\omega_0(t+h))]\times[(U_1\sin(2\pi\omega_0t) + U_2\cos(2\pi\omega_0t)]\}$$
+$$=\sin(2\pi\omega_0(t+h))\sin(2\pi\omega_0t)E(U_1^2) +  \cos(2\pi\omega_0(t+h))\cos(2\pi\omega_0t)E(U_2^2) + 0$$
+$$=\sigma^2 [\sin(2\pi\omega_0t+2\pi\omega_0h)\sin(2\pi\omega_0t) +  \cos(2\pi\omega_0t+2\pi\omega_0h)\cos(2\pi\omega_0t)]$$
+$$=\sigma^2 [\cos(2\pi\omega_0t+2\pi\omega_0h-2\pi\omega_0t)] = \sigma^2 \cos(2\pi\omega_0h)$$
+
+Therefore,the autocovariance function $\gamma(h)$ only depends on the time difference (time shift or lag) $h=|s-t|$. 
+
+Based on these two conclusions, then we can prove that the series $x_t$ is weakly stationary.
+
+
+
+## 1.10
+$x_t$ is single stationary series with $\mu_t=0$ and autocovariance function $\gamma(h)$
+
+### (a)
+Mean-square prediction error:
+$$MSE(A) = E[(x_{t+l}-Ax_t)^2] = E(x_{t+l}^2) + A^2E(x_t^2) - 2AE(x_{t+l}x_t)$$
+$$= Var(x_{t+l}) + A^2Var(x_t) - 2ACov(x_{t+l},x_t) = \gamma(t+l,t+l) + A^2\gamma(t,t) - 2A\gamma(t+l,t)$$
+$$= (A^2+1)\gamma(0) - 2A\gamma(l)$$
+$$\Rightarrow \ \ \text{Let} \ \ \ \ \ \ \ \ \ \frac{\partial}{\partial A} MSE(A) = \frac{\partial}{\partial A} [(A^2+1)\gamma(0) - 2A\gamma(l)] = 2A\gamma(0)-2\gamma(l) = 0$$
+$$\Rightarrow \ \ \ A = \frac{\gamma(l)}{\gamma(0)} = \rho(l)$$
+
+
+### (b)
+$$MSE(A) = (A^2+1)\gamma(0) - 2A\gamma(l) = (\frac{\gamma^2(l)}{\gamma^2(0)}+1)\gamma(0) - 2\frac{\gamma(l)}{\gamma(0)}\gamma(l)$$
+$$= \gamma(0) - \frac{\gamma^2(l)}{\gamma(0)} = \gamma(0)[1-\frac{\gamma^2(l)}{\gamma^2(0)}] = \gamma(0)[1-\rho^2(l)]$$
+
+
+### (c)
+If true $x_{t+l} = Ax_t$ with probability 1, then: $MSE = E[(x_{t+l}-Ax_t)^2] = 0$
+
+Also, from (a) and (b), we can get that $MSE = \gamma(0)[1-\rho^2(l)] = \gamma(0)[1-A^2]$
+
+Therefore, $A = \rho(l) = \pm1$, so if $A>0$ then $\rho(l)=1$, and if $A<0$ then $\rho(l)=-1$.
+
+
+
+
+## 1.13
+$x_t = w_t$, and $y_t = w_t - \theta w_{t-1} + \mu_t$
+
+### (a)
+Since $E(y_t) = 0$, so autocovariance function:
+$$\gamma_y(h) = Cov(y_{t+h},y_t) = E[(w_{t+h} - \theta w_{t+h-1} + \mu_{t+h})(w_t - \theta w_{t-1} + \mu_t)]$$
+$$=(\theta^2+1)\gamma_w(h) - \theta \ [\gamma_w(h-1) + \gamma_w(h+1)] + \gamma_\mu(h)$$
+$$
+\Rightarrow \ \ \ \gamma_y(h) = \left\{ \begin{array}{ll} 
+(\theta^2+1)\sigma_w^2 + \sigma_\mu^2 & if \ h=0  \\
+-\theta\sigma_w^2  & if \ h=\pm1 \\
+0 & if \ |h| \geq 2
+\end{array} \right. 
+$$
+
+Then, ACF is:
+$$
+\rho_y(h) = \frac{\gamma_y(h)}{\gamma_y(0)} = \left\{ \begin{array}{ll} 
+1 &  if \ h=0  \\
+\frac{-\theta\sigma_w^2}{(\theta^2+1)\sigma_w^2 + \sigma_\mu^2}  & if \ h=\pm1 \\
+0 & if \ |h| \geq 2
+\end{array} \right. 
+$$
+
+
+### (b)
+The cross-covariance function is:
+$$\gamma_{xy}(h) = Cov(x_{t+h},y_t) = E[(x_{t+h}-E(x_{t+h}))(y_t-E(y_t))] = E(x_{t+h}y_t)$$
+$$
+= E[w_{t+h}(w_t - \theta w_{t-1} + \mu_t)]
+= \gamma_w(h) - \theta \gamma_w(h+1) = \left\{ \begin{array}{ll} 
+\sigma_w^2 &  if \ h=0  \\
+-\theta\sigma_w^2  & if \ h=-1 \\
+0 & \text{otherwise}
+\end{array} \right. 
+$$
+
+Therefore, the CCF is:
+$$
+\rho_{xy}(h) = \frac{\gamma_{xy}(h)}{\sqrt{\gamma_x(0)\gamma_y(0)}}  = \frac{\gamma_{xy}(h)}{\sqrt{\sigma_w^2 ((\theta^2+1)\sigma_w^2 + \sigma_\mu^2)}}
+= \left\{ \begin{array}{ll} 
+\frac{\sigma_w}{\sqrt{(\theta^2+1)\sigma_w^2 + \sigma_\mu^2}} &  if \ h=0  \\
+\frac{-\theta\sigma_w}{\sqrt{(\theta^2+1)\sigma_w^2 + \sigma_\mu^2}} &  if \ h=-1 \\
+0 & \text{otherwise}
+\end{array} \right. 
+$$
+
+
+### (c)
+First, from (a) we can get that $y_t$ is stationary. And $x_t = w_t$ is white noise series so $x_t$ is also stationary.
+
+And from (b) we get that the the cross-covariance function $\gamma_{xy}(h)$ is a function only of lag $h$.
+
+Therefore, we can conclude that $x_t$ and $y_t$ are jointly stationary.
+
+
+
+## 1.14
+$x_t$ is a stationary normal process with mean $\mu_x$ and autocovariance function $\gamma(h)$, and $y_t = \exp\{x_t\}$
+
+### (a)
+Since $x_t$ is normally distributed with mean $\mu_x$ and variance $\gamma(0)$, so the first moment generating function of $x_t$ is:
+$$M(\lambda=1) \ = E(e^{x_t}) = \int e^{x_t} \frac{1}{\sqrt{2\pi\gamma(0)}}e^{-\frac{1}{2}(x_t-\mu_x)^2/\gamma(0)} dx_t = \exp\{\mu_x + \frac{1}{2}\gamma(0)\}$$
+
+So the mean function of $y_t$ is:
+$$\mu_y = E(y_t) = E(\exp\{x_t\}) = \exp\{\mu_x + \frac{1}{2}\gamma(0)\}$$
+
+
+### (b)
+Since $x_{t+h}+x_t$ is still a normal random variable with mean $E(x_{t+h}+x_t) = 2\mu_x$ and variance $Var(x_{t+h}+x_t) = 2\gamma(0) + 2\gamma(h)$, so its first moment generating functon is:
+$$M(\lambda=1) \ = E[\exp\{x_{t+h}+x_t\}] = \exp\{2\mu_x + \gamma(0) + \gamma(h)\}$$
+
+Therefore, the autocovariance function of $y_t$ is:
+$$\gamma_y(h) = Cov(y_{t+h},y_t) = E(y_{t+h}y_t) - E(y_{t+h})E(y_t) = E[\exp\{x_{t+h}+x_t\}] - \exp\{2\mu_x+\gamma(0)\}$$
+$$= \exp\{2\mu_x + \gamma(0) + \gamma(h)\} - \exp\{2\mu_x+\gamma(0)\} = \exp\{2\mu_x+\gamma(0)\} \ \left( \exp\{\gamma(h)\}-1 \right)$$
+
+
+
+
+## 1.16
+$x_t = \sin(2\pi Ut)$, where $U \sim \text{Uinf}(0,1)$
+
+### (a)
+Mean function:
+$$\mu_x = E(x_t) = E[\sin(2\pi Ut)] = \int_0^1 \sin(2\pi ut) du = \frac{-1}{2\pi t} \cos(2\pi ut)|_0^1$$
+$$= \frac{-1}{2\pi t} \times (1-1) = 0 \ \ \ \ (t=1,2,3,...)$$
+
+Autocovariance function:
+$$\gamma(h) = Cov(x_{t+h}, x_t) = E(x_{t+h}x_t) = E[\sin(2\pi U(t+h))\ \sin(2\pi Ut))] = \frac{1}{2} E[\cos(2\pi Uh) - \cos(2\pi U(2t+h))]$$
+
+Since:
+$$E[\cos(2\pi Uv)] = \int_0^1 \cos(2\pi uv) du = \frac{1}{2\pi v} \sin(2\pi ut)|_0^1 = 0 \ \ \ \ (\text{if} \ v=1,2,... \text{and} \ v\neq0)$$
+$$E[\cos(2\pi Uv)] = 1  \ \ \ \ (\text{if} \ v=0)$$
+
+So:
+$$
+\gamma(h) = \frac{1}{2} E[\cos(2\pi Uh) - \cos(2\pi U(2t+h))]
+= \left\{ \begin{array}{ll} 
+\frac{1}{2} &  if \ h=0  \\
+0 &  if \ h\neq0
+\end{array} \right.
+$$
+
+In conclusion, the mean function is a constant that does not depend on time $t$, and autocovariance function only depends on time lag $h$, therefore $x_t$ is weakly stationary.
+
+
+### (b)
+Let's have a look at some examples:
+
+$$P(x_1\leq0,x_3\leq0) = P(\sin(2\pi U)\leq0, \ \sin(6\pi U)\leq0)$$
+$$= P\left( U \in [\frac{1}{2},1],\ U \in [\frac{1}{6},\frac{2}{6}] \cup [\frac{3}{6},\frac{4}{6}] \cup [\frac{5}{6},1] \right) = P\left( \ U \in [\frac{3}{6},\frac{4}{6}] \cup [\frac{5}{6},1] \right) = \frac{1}{3}$$
+
+However,
+$$P(x_2\leq0,x_4\leq0) = P(\sin(4\pi U)\leq0, \ \sin(8\pi U)\leq0)$$
+$$= P\left( \ U \in [\frac{3}{8},\frac{4}{8}] \cup [\frac{7}{8},1] \right) = \frac{1}{4}$$
+
+Since $P(x_1\leq0,x_3\leq0) \neq P(x_2\leq0,x_4\leq0)$, so we can conclude that $x_t$ is not strictly stationary.
+
+
+
+
+## 1.18
+$x_t$ is a linear process, which is a linear combination of white noise variates $w_t$:
+$$x_t = \mu + \sum_{j=-\infty}^\infty \psi_j w_{t-j}, \ \ \ \ \ \ \sum_{j=-\infty}^\infty |\psi_j| < \infty $$
+
+So the mean is: $E(x_t) = \mu$, which is a constant.
+
+And the autocovaraince function is:
+$$\gamma_x(h) = Cov \left( \mu + \sum_{i=-\infty}^\infty \psi_i w_{t+h-i},\ \mu + \sum_{j=-\infty}^\infty \psi_j w_{t-j} \right) = Cov \left( \sum_{i=-\infty}^\infty \psi_i w_{t+h-i}, \sum_{j=-\infty}^\infty \psi_j w_{t-j} \right)$$
+$$= \sigma_w^2 \sum_{j=-\infty}^\infty \psi_{j+h} \psi_j$$
+
+Therefore, the autocovariance function only depends on time through lag $h$. Thus the linear process $x_t$ is stationary.
+
+Now we can prove that,
+$$\sum_{h=-\infty}^\infty |\gamma(h)| = \sigma_w^2 \sum_{h=-\infty}^\infty |\sum_{j=-\infty}^\infty \psi_{j+h} \psi_j| \leq \sigma_w^2 \sum_{h=-\infty}^\infty \sum_{j=-\infty}^\infty |\psi_{j+h} \psi_j| = \sigma_w^2 \sum_{h=-\infty}^\infty \sum_{j=-\infty}^\infty |\psi_{j+h}||\psi_j|$$
+$$= \sigma_w^2 \sum_{l=-\infty}^\infty |\psi_{l}| \sum_{j=-\infty}^\infty |\psi_j| = \sigma_w^2 \left( \sum_{j=-\infty}^\infty |\psi_j| \right) ^2 < \infty$$
+
+
+
+
+## 1.20
+Theoretically, the actual ACF of Gaussian white noise series in this question is:
+$$
+\gamma_w(h) = Cov(w_{t+h}, w_t) = \left\{ \begin{array}{ll} 
+\sigma_w^2 = 1 &  if \ h=0  \\
+0 &  if \ h\neq0
+\end{array} \right.
+$$
+
+
+Now we compare it to the sample ACF calculated from simulations with n=500 and n=50 samples:
+```{r, fig.height=6, fig.width=6}
+# n=500 Gaussian white noise
+w_a = rnorm(500,0,1)  # 500 N(0,1) variates
+w_b = rnorm(50,0,1)   # 50 N(0,1) variates
+
+# sample ACF values
+acf(w_a, lag.max=20, plot=FALSE)
+acf(w_b, lag.max=20, plot=FALSE)
+
+# plots
+par(mfrow=c(2,1))
+acf(w_a, lag.max=20, main='')
+legend('topright',legend='n=500')
+acf(w_b, lag.max=20, main='')
+legend('topright',legend='n=50')
+```
+
+Comments:
+
+In both cases, the sample ACF $\hat{\rho}(h) = 1$ when $h=0$, which is the same as the theoretical ACF value. 
+
+However, for n=500, the sample ACF $\hat{\rho}(h)$ values are quite close to 0 when $h\neq0$; but for n=50, the sample ACF $\hat{\rho}(h)$ values are much larger than the case for n=500.
+
+As a result, changing the sample size n will not affect the sample ACF $\hat{\rho}(h)$ when $h=0$, but will affect $\hat{\rho}(h)$ when $h\neq0$, i.e. the larger the n is the closer the $\hat{\rho}(h)$ will be to 0.
+
+
+
+
+## 1.23
+
+Signal-plus-noise model with $\sigma_w^2=1$:
+$$x_t = 2\cos(2\pi\frac{t+15}{50}) + w_t  = 2\cos(2\pi t/50 + 0.6\pi) + w_t\ \ \ \ \ \ \ (\text{for } t=1,2,...,500)$$
+
+```{r}
+# n=500 signal-plus-noise
+s = 2*cos(2*pi*1:500/50 + 0.6*pi)   #500 signal points
+w = rnorm(500,0,1)    #500 N(0,1) white noise
+x = s + w
+
+# sample ACF values
+acf(x, lag.max=100, plot=FALSE)
+
+# plots
+acf(s, lag.max=100, main='')
+legend('bottomright',legend='n=500')
+```
+
+Comments:
+
+The ACF function $\rho(h)$ of the signal-plus-noise model has a sinusoidal waveform that oscillates very regularly around zero with a period of near 50. Plus, the magnitude of the $\rho(h)$ values slightly decays when time lag $h$ becomes larger. 
+
+
+
+
+## 1.26
+A collection of time series $x_{1t}, x_{2t},.., x_{Nt}$, for $j$-th observed series we have model: $x_{jt} = \mu_t + e_{jt}$, where $\mu_t$ is the common signal.
+
+### (a)
+For each time series, the mean fucntion is: $E(x_{jt}) = E(\mu_t + e_{jt}) = \mu_t$
+
+So:
+$$E(\bar{x}_t) = E\left[ \frac{1}{N} \sum_{j=1}^N x_{jt} \right] = \frac{1}{N} \sum_{j=1}^N E(x_{jt}) = \frac{1}{N} \times N\mu_t = \mu_t$$
+
+
+### (b)
+$$E[(\bar{x}_t - \mu_t)^2] = E[(\bar{x}_t - E(\bar{x}_t))^2] = Var(\bar{x}_t) = Var\left( \frac{1}{N} \sum_{j=1}^N x_{jt} \right) = \frac{1}{N^2} \sum_{i=1}^N \sum_{j=1}^N Cov(x_{it},x_{jt})$$
+$$= \frac{1}{N^2} \sum_{i=1}^N \sum_{j=1}^N Cov(\mu_t + e_{it},\mu_t + e_{jt}) = \frac{1}{N^2} \sum_{i=1}^N \sum_{j=1}^N Cov(e_{it},e_{jt}) = \frac{1}{N^2} N \gamma_e(t,t) = N^{-1} \gamma_e(t,t)$$
+
+
+### (c)
+
+From (a), we have $E(\bar{x}_t) = \mu_t$, so we can use sample mean $\hat{\mu}_t = \bar{x}_t$ as an estimator to estimate common signal $\mu_t$. And this estimator is unbiased since $E(\hat{\mu}_t) = \mu_t$.
+
+From (b), we have $Var(\hat{\mu}_t) = Var(\bar{x}_t) = N^{-1} \gamma_e(t,t)$. By Chebyshev's inequality, we can derive that:
+$$P(|\hat{\mu}_t - \mu_t| \geq \varepsilon) = P(|\bar{x}_t - \mu_t| \geq \varepsilon) \ \leq \frac{Var(\bar{x}_t)}{\varepsilon^2} = \frac{\gamma_e(t,t)}{N\varepsilon^2} \ \rightarrow \ 0 \ \ (\text{ as } N \rightarrow \infty) \ \ \ \ \forall \varepsilon $$
+So the estimator $\hat{\mu}_t = \bar{x}_t$ for $\mu_t$ is also consistent.
+
+
+
+
+## 1.30
+$x_t$ is a linear process of the form:
+$$x_t = \mu_x + \sum_{j=-\infty}^\infty \psi_j w_{t-j}, \ \ \ \ \ \ \sum_{j=-\infty}^\infty |\psi_j| < \infty $$
+where $w_t \sim \text{iid}(0,\sigma_w^2)$
+
+Since:
+$$\tilde{\gamma}(h) = n^{-1} \sum_{t=1}^n(x_{t+h}-\mu_x)(x_t-\mu_x), \ \ \ \ \text{where } \mu_x = E(x_t) $$
+and
+$$\hat{\gamma}(h) = n^{-1} \sum_{t=1}^{n-h}(x_{t+h}-\bar{x})(x_t-\bar{x}), \ \ \ \ \text{where } \bar{x} = n^{-1} \sum_{t=1}^{n} x_t$$
+
+Now we can construct a series:
+$$y_t = x_t - \mu_x = \sum_{j=-\infty}^\infty \psi_j w_{t-j}$$
+
+So we have following equations:
+$$E(y_t) = 0 \ \ \ \text{and} \ \ \ \gamma_y(h) = \sigma_w^2 \sum_{j=-\infty}^\infty \psi_{j+h} \psi_j$$
+
+$$\bar{x} = n^{-1} \sum_{t=1}^{n} (y_t + \mu_x) = n^{-1} \sum_{t=1}^{n} y_t + \mu_x = \bar{y} + \mu_x$$
+
+
+Therefore, we can derive that:
+$$ n^{1/2} (\tilde{\gamma}(h) - \hat{\gamma}(h)) = n^{-1/2} \left[ \sum_{t=1}^n y_{t+h}y_t -  \sum_{t=1}^{n-h} (y_{t+h} + \mu_x - \bar{y} - \mu_x) (y_{t} + \mu_x - \bar{y} - \mu_x) \right]$$
+$$= n^{-1/2} \left[ \sum_{t=1}^n y_{t+h}y_t - \sum_{t=1}^{n-h} (y_{t+h} - \bar{y}) (y_{t} - \bar{y}) \right] = n^{-1/2} \left[ \sum_{t=n-h+1}^n y_{t+h}y_t + \sum_{t=1}^{n-h} y_{t+h}y_t- \sum_{t=1}^{n-h} (y_{t+h} - \bar{y}) (y_{t} - \bar{y})\right]$$
+$$= n^{-1/2} \left[ \sum_{t=n-h+1}^n y_{t+h}y_t + \bar{y}\sum_{t=1}^{n-h}(y_{t+h}+y_t)  - (n-h)\bar{y}^2 \right] $$
+
+Thus,
+$$\Rightarrow \ \ \ |n^{1/2} (\tilde{\gamma}(h) - \hat{\gamma}(h))| \ \leq \ n^{-1/2} \left[ |\sum_{t=n-h+1}^n y_{t+h}y_t| + |\bar{y}\sum_{t=1}^{n-h}(y_{t+h}+y_t)|  + |(n-h)\bar{y}^2| \right]$$
+$$ \leq \ \frac{1}{\sqrt{n}} \sum_{t=n-h+1}^n |y_{t+h}y_t| + \frac{1}{\sqrt{n}} \sum_{t=1}^{n-h} |(y_{t+h}+y_t)\bar{y}|  + \sqrt{n}\bar{y}^2 $$
+
+(1) 
+$$E(|y_{t+h}y_t|) \leq E(\frac{y_{t+h}^2 + y_t^2}{2}) = Var(y_t) = \gamma_y(0) = \sigma_w^2 \sum_{j=-\infty}^\infty \psi_j^2 < \infty $$
+
+$$\Rightarrow \ \ P \left( \frac{1}{\sqrt{n}} \sum_{t=n-h+1}^n |y_{t+h}y_t| \geq \varepsilon \right) \leq \frac{1}{\varepsilon} E \left[ \frac{1}{\sqrt{n}} \sum_{t=n-h+1}^n |y_{t+h}y_t| \right] \leq \frac{\sigma_w^2}{\varepsilon\sqrt{n}} \sum_{t=n-h+1}^n \sum_{j=-\infty}^\infty \psi_j^2$$
+$$= \frac{\sigma_w^2h}{\varepsilon\sqrt{n}} \sum_{j=-\infty}^\infty \psi_j^2  \rightarrow \ 0 \ \ (\text{ as } n \rightarrow \infty) \ \ \ \forall \varepsilon>0$$
+
+Hence, $\frac{1}{\sqrt{n}} \sum_{t=n-h+1}^n |y_{t+h}y_t| = o_p(1)$
+
+
+
+(2)
+Similarly,
+$$P \left( \frac{1}{\sqrt{n}} \sum_{t=1}^{n-h} |(y_{t+h}+y_t)\bar{y}| \geq \varepsilon \right) \leq \frac{1}{\varepsilon} E \left[ \frac{1}{\sqrt{n}} \sum_{t=1}^{n-h} |(y_{t+h}+y_t)\bar{y}| \right] \leq \frac{2\sigma_w^2 h}{\varepsilon\sqrt{n}} \sum_{j=-\infty}^\infty \psi_j^2 \rightarrow \ 0 \ \ (\text{ as } n \rightarrow \infty) \ \ \ \forall \varepsilon>0$$
+
+Hence, $\frac{1}{\sqrt{n}} \sum_{t=1}^{n-h} |(y_{t+h}+y_t)\bar{y}| = o_p(1)$
+
+
+
+(3) Since
+$$E(\bar{y}) = E(\frac{1}{n} \sum_{t=1}^{n} y_t) = 0$$
+$$Var(\bar{y}) = Var(\frac{1}{n} \sum_{t=1}^{n} y_t) = \frac{1}{n^2} \sum_{s=1}^n \sum_{t=1}^n Cov(y_s,y_t) = \frac{\sigma_w^2}{n^2} \sum_{s=1}^n \sum_{t=1}^n  \sum_{j=-\infty}^\infty \psi_{j+s-t} \psi_j$$
+$$\leq \frac{\sigma_w^2}{n^2} \sum_{s=1}^n \sum_{t=1}^n  \sum_{j=-\infty}^\infty |\psi_{j+s-t}| |\psi_j| = \frac{\sigma_w^2}{n^2} \left( \sum_{j=-\infty}^\infty |\psi_j|\right)^2 < \infty$$
+
+So by Markov Inequality:
+$$P(|\sqrt{n}\bar{y}^2| \geq \varepsilon) \leq \frac{E|\sqrt{n}\bar{y}^2|}{\varepsilon} = \frac{\sqrt{n}E(\bar{y}^2)}{\varepsilon} = \frac{\sqrt{n}Var(\bar{y})}{\varepsilon}$$
+$$\leq \frac{\sigma_w^2 \left( \sum_{j=-\infty}^\infty |\psi_j|\right)^2}{\varepsilon\sqrt{n^3}} \rightarrow \ 0 \ \ (\text{ as } n \rightarrow \infty) \ \ \ \forall \varepsilon>0$$
+
+Hence, $\sqrt{n}\bar{y}^2 = o_p(1)$ 
+
+
+Based on (1), (2) and (3), as a result, we can prove that $n^{1/2} (\tilde{\gamma}(h) - \hat{\gamma}(h)) = o_p(1)$.
+
+
+
+
+
+## 1.32
+### (a)
+Since $h\geq1, k\geq1$ and $x_t \sim \text{iid}(0,\sigma^2)$ , so for all $s\neq t$:
+$$Cov(x_tx_{t+h}, x_sx_{s+k}) = E(x_tx_{t+h}x_sx_{s+k}) - E(x_tx_{t+h})E(x_sx_{s+k}) = E(x_tx_{t+h}x_sx_{s+k})$$
+
+Because $h\geq1, k\geq1, s\neq t$, so among four points $(x_t,x_{t+h},x_s,x_{s+k})$ there must be some point is indepent from the other ones, hence $E(x_tx_{t+h}x_sx_{s+k}) = 0$.
+
+$$\Rightarrow Cov(x_tx_{t+h}, x_sx_{s+k}) = 0$$
+$$\Rightarrow x_tx_{t+h} \ \text{and} \ x_sx_{s+k} \ \text{are uncorrelated for all} \ s\neq t$$
+
+
+### (b) & (c) & (d)
+In the following pages.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

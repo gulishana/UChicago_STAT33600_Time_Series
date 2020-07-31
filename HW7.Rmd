@@ -1,0 +1,207 @@
+---
+title: "STAT33600 Homework 7"
+author: "Sarah Adilijiang"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+## Section 4.4 Nonparametric Spectral Estimation
+
+## 4.17
+
+### (1) Prove (4.71)
+
+In general, for series $x_t$, the periodogram can be written as:
+
+$$I(w_j) = |d(w_j)|^2 = \left| \frac{1}{\sqrt{n}} \sum_{t=1}^n x_t e^{-2\pi i w_j t} \right|^2 = \frac{1}{n} \left( \sum_{t=1}^n x_t e^{-2\pi i w_j t} \right) \left( \sum_{t=1}^n x_t e^{2\pi i w_j t} \right)$$
+
+$$= \frac{1}{n} \sum_{t=1}^n \sum_{s=1}^n x_t x_s e^{-2\pi i w_j t}   e^{2\pi i w_j s} = \frac{1}{n} \sum_{t=1}^n \sum_{s=1}^n x_t x_s e^{-2\pi i w_j (t-s)}$$
+
+Then use Property 4.2:
+
+$$\gamma(h) = \int_{-\frac{1}{2}}^{\frac{1}{2}} e^{2\pi iwh} f(w) dw$$
+
+
+If $y_t = h_tx_t$, where $x_t$ is a stationary process with zero mean, $h_t$ is a taper, then we can have that:
+
+$$E[I_y(w_j)] \ = \ E\left[ \frac{1}{n} \sum_{t=1}^n \sum_{s=1}^n y_t y_s e^{-2\pi i w_j (t-s)} \right] \ = \ \frac{1}{n} \sum_{t=1}^n \sum_{s=1}^n E[y_t y_s] e^{-2\pi i w_j (t-s)}$$
+
+$$= \frac{1}{n} \sum_{t=1}^n \sum_{s=1}^n h_th_s E[x_tx_s] e^{-2\pi i w_j (t-s)} = \frac{1}{n} \sum_{t=1}^n \sum_{s=1}^n h_th_s \gamma_x(t-s) e^{-2\pi i w_j (t-s)}$$
+
+$$= \frac{1}{n} \sum_{t=1}^n \sum_{s=1}^n h_th_s \left( \int_{-\frac{1}{2}}^{\frac{1}{2}} e^{2\pi iw(t-s)} f_x(w) dw \right) e^{-2\pi i w_j (t-s)}$$
+
+$$= \frac{1}{n} \int_{-\frac{1}{2}}^{\frac{1}{2}} \left( \sum_{t=1}^n \sum_{s=1}^n h_th_s e^{2\pi iw(t-s)} e^{-2\pi i w_j (t-s)} \right) f_x(w) dw$$
+
+$$= \frac{1}{n} \int_{-\frac{1}{2}}^{\frac{1}{2}} \left( \sum_{t=1}^n \sum_{s=1}^n h_th_s e^{-2\pi i (w_j-w)t} e^{2\pi i (w_j-w)s} \right) f_x(w) dw$$
+
+$$= \int_{-\frac{1}{2}}^{\frac{1}{2}} \left( \frac{1}{\sqrt{n}} \sum_{t=1}^n  h_t e^{-2\pi i (w_j-w)t} \right) \left( \frac{1}{\sqrt{n}} \sum_{s=1}^n h_s e^{2\pi i (w_j-w)s} \right) f_x(w) dw$$
+
+$$= \int_{-\frac{1}{2}}^{\frac{1}{2}} \ \left| \frac{1}{\sqrt{n}} \sum_{t=1}^n h_t e^{-2\pi i (w_j-w)t} \right|^2 f_x(w) dw$$
+
+$$= \int_{-\frac{1}{2}}^{\frac{1}{2}} \ W_n(w_j-w) \ f_x(w) \ dw$$
+
+where
+$$W_n(w) = |H_n(w)|^2\ \ \ \ \ , \ \ \ \ \ H_n(w) = \frac{1}{\sqrt{n}} \sum_{t=1}^n h_t e^{-2\pi iwt}$$
+
+
+
+
+### (2) Prove (4.74)
+
+If $h_t = 1$ for all $t$, i.e. $y_t = x_t$, we have $I_y(w_j) = I_x(w_j)$ is simply the periodogram of the data, and:
+
+$$E[I_x(w_j)] = E[I_y(w_j)] = \int_{-\frac{1}{2}}^{\frac{1}{2}} \ W_n(w_j-w) \ f_x(w) \ dw$$
+
+where
+$$W_n(w) = |H_n(w)|^2 = \left| \frac{1}{\sqrt{n}} \sum_{t=1}^n e^{-2\pi iwt} \right|^2 = \frac{1}{n} \left(\sum_{t=1}^n e^{-2\pi iwt}\right) \left(\sum_{t=1}^n e^{2\pi iwt}\right)$$
+
+
+Then when $w \neq 0$, the window $W_n(w)$ is:
+
+$$W_n(w) = \frac{1}{n} \times \frac{e^{-2\pi iw} (1 - e^{-2\pi iwn})}{1-e^{-2\pi iw}} \times \frac{e^{2\pi iw} (1 - e^{2\pi iwn})}{1-e^{2\pi iw}} = \frac{1}{n} \times \frac{(1 - e^{-2\pi iwn})(1 - e^{2\pi iwn})}{(1-e^{-2\pi iw})(1-e^{2\pi iw})}$$
+
+$$= \frac{1}{n} \times \frac{(1 - \cos(2\pi wn))^2 + \sin^2(2\pi wn)}{(1 - \cos(2\pi w))^2 + \sin^2(2\pi w)} = \frac{1}{n} \times \frac{2\times(1 - \cos(2\pi wn))} {2\times(1 - \cos(2\pi w))}$$
+
+$$= \frac{1}{n} \times \frac{4\sin^2(\pi wn)} {4\sin^2(\pi w)} \ \ = \ \ \frac{\sin^2(n\pi w)} {n\sin^2(\pi w)} \ \ \ \ \ \ (w\neq0)$$
+
+
+And when $w=0$:
+$$W_n(0) \ = \ \frac{1}{n} \times n \times n \ = \ n$$
+
+
+
+
+### (3) Prove (4.75)
+
+From (2), we have proved that if $h_t = 1$ for all $t$, i.e. $y_t = x_t$, then $I_y(w_j) = I_x(w_j)$ is simply the periodogram of the data, and:
+
+$$E[I_x(w_j)] = E[I_y(w_j)] = \int_{-\frac{1}{2}}^{\frac{1}{2}} \ W_n(w_j-w) \ f_x(w) \ dw$$
+
+where
+$$
+W_n(w) = |H_n(w)|^2 = \left| \frac{1}{\sqrt{n}} \sum_{t=1}^n e^{-2\pi iwt} \right|^2 = \left\{\begin{array}{ll}    
+\frac{\sin^2(n\pi w)} {n\sin^2(\pi w)} & w \neq 0 \\
+n & w=0
+\end{array}\right.
+$$
+
+
+If use the averaged periodogram as the estimator of $f_x(w)$:
+$$\hat{f_x}(w_j) = \frac{1}{L} \sum_{k=-m}^m I_x(w_j + \frac{k}{n}) \ \ \ \ \ \ \ \ \ \ \ (L=2m+1)$$
+
+Then we have that:
+
+$$E[\hat{f_x}(w_j)] = E \left[ \frac{1}{L} \sum_{k=-m}^m I_x(w_j + \frac{k}{n}) \right] \ = \ \frac{1}{L} \sum_{k=-m}^m E[I_x(w_j + \frac{k}{n})]$$
+
+$$= \frac{1}{L} \sum_{k=-m}^m \left( \int_{-\frac{1}{2}}^{\frac{1}{2}} \ W_n(w_j+\frac{k}{n}-w) \ f_x(w) \ dw \right)$$
+
+$$= \int_{-\frac{1}{2}}^{\frac{1}{2}} \left( \frac{1}{L} \sum_{k=-m}^m W_n(w_j+\frac{k}{n}-w) \right) f_x(w) \ dw$$
+
+$$= \int_{-\frac{1}{2}}^{\frac{1}{2}} \ \widetilde{W}_n(w_j-w) \ f_x(w) \ dw$$
+
+So the new form of the window $W_n(w)$ here is:
+
+$$\widetilde{W}_n(w) = \frac{1}{L} \sum_{k=-m}^m W_n(w+\frac{k}{n}) = \frac{1}{L} \sum_{k=-m}^m \frac{\sin^2[n\pi(w+\frac{k}{n})]} {n\sin^2[\pi(w+\frac{k}{n})]} = \frac{1}{nL} \sum_{k=-m}^m \frac{\sin^2[n\pi(w+\frac{k}{n})]} {\sin^2[\pi(w+\frac{k}{n})]}$$
+
+
+
+
+
+
+
+## Section 4.7 Linear Filters
+
+## 4.26
+
+### (a)
+
+$$x_t = w_t, \ \ \ \  y_t = \phi x_{t-D} + v_t$$
+where $w_t,v_t$ are independent white noise processes with common vairance $\sigma^2$.
+
+So we have that $f_x(w) = f_w(w) = f_v(w) = \sigma^2$, and the cross-covariance is:
+
+$$
+\gamma_{xy} = Cov(x_{t+h},y_t) = Cov(x_{t+h}, \ \phi x_{t-D} + v_t) = \phi\gamma_x(h+D) = \left\{\begin{array}{ll} 
+\phi\sigma^2 & h = -D \\
+0 & \text{otherwise}
+\end{array}\right.
+$$
+
+$$f_{xy}(w) = \sum_{h=-\infty}^\infty \gamma_{xy}(h) e^{-2\pi iwh} = \phi\sigma^2  e^{2\pi iwD}$$
+
+$$A_{xy}(w) = \frac{f_{xy}(w)}{f_{xx}(w)} = \frac{\phi\sigma^2  e^{2\pi iwD}}{\sigma^2} = \phi e^{2\pi iwD}$$
+
+Thus the amplitude is:
+$$|A_{xy}(w)| = |\phi|$$
+
+And the phase between $x_t$ and $y_t$ is:
+$$\phi_{xy}(w) = 2\pi wD \ \ \ \ \ \ \ \ \ \left( \text{i.e.:} \ \ \ \ \phi_{yx}(w) = -2\pi wD \right)$$
+
+
+
+
+### (b)
+
+```{r, warning=FALSE, fig.height=6, fig.width=12}
+library(astsa)
+
+# simulate series data
+set.seed(123)
+n = 1024    # already have: n = 2^p
+D = 1
+phi = 0.9
+x = ts(rnorm(n+1,0,1))
+y = phi*lag(x,-D) + rnorm(n+1,0,1)
+xy = ts.intersect(x,y)
+
+# estimate phase using different L values
+xy_phase1 = mvspec(xy, plot=FALSE)$phase   # no spans means L=1
+xy_phase3 = mvspec(xy, plot=FALSE, spans=3)$phase
+xy_phase41 = mvspec(xy, plot=FALSE, spans=41)$phase
+xy_phase101 = mvspec(xy, plot=FALSE, spans=101)$phase
+
+# plot the estimated phases for different L values
+freq = 1:(n/2) / n
+plot(freq, xy_phase1, type="l", col=1, lty=1, 
+     ylim=c(-pi,pi), xlab="frequency", ylab="phase")
+lines(freq, xy_phase3, col=2, lty=1)
+lines(freq, xy_phase41, col=3, lty=1, lwd=2)
+lines(freq, xy_phase101, col=4, lty=1, lwd=2)
+abline(a=0, b=2*pi, col=6, lty=2, lwd=2) # true slope
+legend("bottomleft", legend=c("L = 1","L = 3","L = 41","L = 101", expression(paste("True Slope = ", 2*pi))), lty=c(1,1,1,1,2), col=c(1,2,3,4,6))
+```
+
+From question (a), we have that the true slope should be:
+$$\frac{\phi_{xy}(w)}{w} = 2\pi D = 2\pi \ \ \ \ \ \ (D=1)$$
+which is also plotted in the above figure.
+
+From the above plots we can see that as the value of $L$ increases, the estimates of the phases, i.e. $\hat{\phi}_{xy}(w) = 2\pi w\hat{D}$, is closer to the true values of the phase, i.e. $\phi_{xy}(w) = 2\pi w$. Therefore, larger value of $L$ gives better estimates of the delay $D$ as well as the phase between $x_t$ and $y_t$.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

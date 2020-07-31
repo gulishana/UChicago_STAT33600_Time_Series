@@ -1,0 +1,684 @@
+---
+title: "STAT33600 Final Project"
+author: "Sarah Adilijiang"
+fontsize: 10pt
+spacing: double
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width=5, fig.height=3.5, fig.align='center',
+                      warning=FALSE, message=FALSE, echo=FALSE)
+```
+
+
+# 1 Introduction
+
+Global warming has been one of the top concerns since 20th century. There are numerous studies carried out regarding the global warming trend, causal effects, and predictions. Different researchers hold different opinions on whether the global warming trend has slowed down in 2000s. And it results in numerous debates from different perspectives. On the other hand, the common sense of protecting our earth and environments has been discussed widely because human behaviors will affect the global warming issue to some extend. In this paper, we will analyze one of the longest air temperature records, the Central England Temperature data starting from 1659. This dataset has been widely analyzed and several important conclusions have been made. However, some of the papers were published many years ago. Here using the new data up to 2019, we will fit the model and discuss whether these conclusions can still be justified.
+
+
+# 2 Background
+
+Jones & Bradley (1992a) applied 10 year Gaussian filters to 10 longest air temperature records, including the Central England data, and claimed that all the annual series for temperature data from 1700 to 1850 show some indication of warming. This has shown the early global warming studies in the general trends of air temperatures. Also, the annual Northem hemisphere average temperatures data also shows such a warming trend. Benner (1999), on the other hand, studied the possible causes of the warming trend. The paper showed the a correlation between the solar irradiance and sunspot numbers over long periods. However, there is no apparent relationship to the El Nino-Southern Oscillation. Among the numerous studies of showing the increasing global warming rate, recently, Vaidyanathan (2016) presented a different opinion that, in fact, the temperatures after 2000 has actually slowed down. The conclusion was made comparing the predictions and the true data for the period after 2000s.
+
+
+
+
+# 3 Data and Periodogram Analysis
+
+## 3.1 Raw Data Exploration
+
+```{r}
+data = read.table("ssn_HadCET_mean.txt", skip=11, header=TRUE)
+data_vec = rep(0,nrow(data)*4)
+for (i in 1:nrow(data)) {
+    for (j in 2:5) {
+        data_vec[4*(i-1)+j-1] = data[i,j]
+    }
+}
+data_vec = data_vec[-1]
+temp = ts(data_vec, start=c(1659,2), end=c(2019,4), frequency=4)
+```
+
+
+```{r, fig.width=6, fig.height=4}
+# data plot
+plot.ts(temp, main="Central England Temperatures", 
+        xlab="year", ylab="temperature")
+
+# Moving Average Smoother
+wgts = c(0.5, rep(1,39), 0.5)/40
+temp_f = filter(temp, sides=2, filter=wgts)
+lines(temp_f, lwd=2, col=2)
+legend("bottomright", legend="10-year Moving Average Filter", 
+        lty=1, lwd=2, col=2, cex=0.6)
+```
+
+```{r, fig.width=6, fig.height=4}
+# four seasons plots
+plot(data$Year[2:1433], data$DJF[2:1433], type="l", ylim=c(-6, 18), col='blue', 
+     xlab="year", ylab="temperature", main="Temperatures of Four Seasons")
+lines(data$Year, data$MAM, lty=1, col='green')
+lines(data$Year, data$JJA, lty=1, col='red')
+lines(data$Year, data$SON, lty=1, col="orange")
+legend("bottomright", legend=c("Winter","Spring","Summer","Autumn"), 
+       lty=1, col=c('blue','green','red','orange'), cex=0.6)
+```
+
+The data is recording the seasonal Central England temperature (unit is degrees celsius) from year 1659 to 2019. The seasonal values are calculated from the monthly temperature data by averaging the three monthly values. The four seasons are Winter (Dec-Feb), Spring (Mar-May), Summer (June-Aug), and Autumn (Sept-Nov). Note that for each Winter, the year refers to January.
+
+Because the seasonal data exist for Spring 1659 onwards, so the first data point of Winter in 1659 is recorded as -99.9 degrees, an unmeaningful number, thus this value is deleted from the original data for further exploration.
+
+The figure above shows the plot of the raw data. The whole data should have an annual (12 months) temperature cycle since it is a data of seasonal temperatures. Further periodic component analysis will be performed to determine wheter there are other predominant periods, such as an El Nino cycle. 
+
+On the other hand, a moving average filter is applied to the raw data, where a particular 10-year, two-side, weighted averaging is used to help remove the obvious annual temperature cycle and emphasize other potential patterns in the longer time scale. However, the smoother does not seem to have other obvious periodic cycles. But it seems to have a slightly increasing trend from around 1980 to 2019, though being roughly flat from 1659 to around 1980. This small increasing trend can be also seen in the four seasons' plots, especially in the Winter season.
+
+
+
+
+## 3.2 Periodogram Analysis
+
+```{r, fig.width=4, fig.height=3}
+library(astsa)
+per = mvspec(temp, log="no", main="Periodogram")
+n = per$n.used
+c(length(temp), n)
+m = length(per$freq)
+y = cbind(1:m, per$spec, per$freq, 1/per$freq)
+colnames(y) = c('j','periodogram','frequency','year/cycle')
+y[order(y[,'periodogram'], decreasing=TRUE)[1:3], ]
+```
+
+This figure shows the periodogram of the series, where the frequency axis is labeled in multiples of time unit $\bigtriangleup = \frac{1}{4}$ year. There is only one major frequency at $j/n \div \bigtriangleup = 364/1458 \div \frac{1}{4} = 0.9986283 \approx 1$ cycle per year. Note that the data have been padded to a series of lenghth 1458 while the original data is of lenghth 1433, so we use $n=1458$.
+
+Therefore, the periodogram analysis agrees with the common sense of an annual cycle of temperatures, however, there is no other predominant periods in this dataset such as an El Nino cycle. In this case, since there is only an annual cycle with seasonal (quarterly) values, we can model the data using two different approaches: (1) time domain approach, and (2) frequency domian approach. These two approaches are modeled in the following paragraphs.
+
+
+
+
+
+
+# 4 Time Domain Approach 
+
+## 4.1 Simple Linear Regression Model
+
+Here we consider a simple linear regression model for the temperature series $x_t$:
+$$
+\begin{array}{ll}
+x_t & = \ T_t + S_t + N_t \\
+    & = \ \beta\ t + \alpha_1Q_1(t) + \alpha_2Q_2(t) + \alpha_3Q_3(t) + \alpha_4Q_4(t) + w_t
+\end{array}
+$$
+where $T_t = \beta t$ is the simple linear trend component (no intercept); $S_t = \alpha_1Q_1(t) + \alpha_2Q_2(t) + \alpha_3Q_3(t) + \alpha_4Q_4(t)$ is the seasonal component, where indicator variables $Q_i(t)=1$ if time $t$ corresponds to quarter $i=1,2,3,4$, and zero otherwise, so $Q_i(t)$ can be treated as factor variables; $N_t = w_t$ is the white noise sequence.
+
+```{r}
+trend = time(temp) - mean(time(temp))    # helps to center time
+Q = factor(cycle(temp)) # make (Q)uarter 4-level factors
+mod1 = lm(temp ~ 0 + trend + Q, na.action = NULL)  # no intercept
+summary(mod1)
+```
+
+Results show that the adjusted $R^2 = 0.9908$, and all the coefficients are very significant, so this simple model fits the series data well. Therefore, the fitted regression model is:
+$$\hat{x}_t = 0.0028\ t + 3.7542\ Q_1(t) + 8.1763\ Q_2(t) + 15.3230\ Q_3(t) + 9.7165\ Q_4(t)$$
+We can see that the coefficient of the trend part is too small comparing with the other coefficients of the seasonal parts. 
+
+Now let's look at the residuals.
+
+```{r}
+resid1 = resid(mod1)
+Box.test(resid1)
+plot(resid1, xlab="time", ylab="residuals", main="Residual plot")
+abline(h=0, col=2, lty=2, lwd=2)
+acfs = acf2(resid1, max.lag=50, main="Residual ACF and PACF")
+```
+
+The Pierce-Box test shows that the residuals are not independently distributed. And the residual plot presents some trend in the residuals as well, especially the slightly increasing trend from 1700 to 1730 and the last part of the residuals starting around 1980 to 2019. So the residuals are not stationary. Plus, the residual ACF and PACF plot shows that it is not a white noise sequence.
+
+Therefore, this simple linear regression model is not a good model for the data for it being too simple. Then next we consider a more complicated ARIMA(p,d,q) model.
+
+
+
+
+
+## 4.2 ARIMA Model
+
+### 4.2.1 Basic Modeling
+
+We consider the ARIMA(p,d,q) model:
+$$\phi(B)\ (1-B)^d \ x_t = \theta(B)$$
+
+First, we estimate the parameter $d$. Because for small $\omega$, we have:
+$$\log \hat{f}(\omega) = \log c -2d \ \log(|\omega|)$$
+So we can fit a linear regression model for $\log \hat{f}(\omega) \sim \log(|\omega|)$, and the slope would be $-2d$. 
+
+```{r, fig.width=4, fig.height=3}
+# plot
+per101 = mvspec(temp, plot=FALSE, spans=101) # estimate spectrum using L=101
+n = per101$n.used
+freq = 1:(n/2) / n
+plot(log(abs(freq[1:30])), log(per101$spec[1:30]), type="l", lty=1, lwd=2,
+     xlab="log (|w|)", ylab="log f(w)", ylim=c(-1.3, 0.5), 
+     main="Estimating slope -2d")
+legend("bottomleft", legend=c("L = 101"), lty=1)
+
+# fit linear model
+coef(lm(log(per101$spec[1:30]) ~ log(abs(freq[1:30]))))
+```
+
+Here I use span = 101 since higher spans give better estimates. The fitted linear model results show that the coefficient $-2d = -0.01129078$, so we can have that $d \approx 0$. 
+
+Thus, the model is an ARMA(p,q) process:
+$$\phi(B)\ x_t = \theta(B)\ w_t$$
+where $w_t$ is a white noise sequence.
+
+Since the temperature data is seasonal and only have an annual cycle with a period of 4 quarters. Then, it is reasonable that the autoregressive part $\phi(B)$ should have an component $(1-B^4)$, i.e. $\phi(B) = \phi^*(B)(1-B^4)$, so that:
+$$\theta(B)\ w_t = \phi(B)\ x_t = \phi^*(B)(1-B^4)x_t = \phi^*(B)\ (x_t - x_{t-4}) = \phi^*(B)\ y_t$$
+where $y_t = x_t - x_{t-4} = (1-B^4)x_t$, which can cancel out the seasonal effect.
+
+Let's check out if there still has any predominant frequency left in the new series $y_t$.
+
+```{r, fig.width=4, fig.height=3}
+y = diff(temp, lag=4)
+per = mvspec(y, log="no", ylim=c(0,100),
+      main=expression(paste(" Periodogram of  ", y[t] == x[t] - x[t-4])))
+```
+
+The periodogram plot shows that there is indeed no more periodic patterns left in the new series $y_t = x_t - x_{t-4}$.
+
+Now we will fit the ARMA(p,q) model for $y_t$: $\ \phi^*(B)\ y_t = \theta(B)\ w_t$
+
+First, we perform a unit root test for $y_t$.
+
+```{r}
+library(tseries)
+adf.test(y) # ADF test
+pp.test(y) # PP test
+```
+
+Both the ADF test and the PP test reject the null hypothesis that the series $y_t$ has a unit root.
+
+Then we check the sample ACF and PACF to find the potential ARMA model candidates.
+
+```{r}
+acfs = acf2(y, max.lag=50, main="Sample ACF and PACF")
+```
+
+The ACF cuts off after lag = 5 quarters, and the PACF tails off slower. These two patterns indicate that the new series $y_t$ is possibly a MA(q) process with q=5. Note that the lag axis in the two plots have units in year.
+
+Therefore, we fit an ARMA(0,5) model to the new series $y_t$.
+
+```{r}
+mod2 = sarima(y, p=0, d=0, q=5, details=FALSE)
+mod2$ttable
+```
+
+We can see that all the fitted MA coefficients are very significant.
+
+Now let's look at the residuals.
+
+```{r}
+resid2 = resid(mod2$fit)
+Box.test(resid2)
+plot(resid2, xlab="time", ylab="residuals", main="Residual plot")
+abline(h=0, col=2, lty=2, lwd=2)
+acfs = acf2(resid2, max.lag=50, main="Residual ACF and PACF")
+```
+
+The Pierce-Box test shows that the residuals are indeed independently distributed. And in the residual plot there is no sigifinicant pattern left in the residuals. This means that this fitted ARMA(0,5) model is a good fit of the data. Plus, the residual ACF and PACF plot shows that the residual now is rougly a white noise sequence.
+
+
+
+
+
+### 4.2.1 Model Selection
+
+Based on the above model, can we make the model better? Let's try several different values of $p$ and $q$, and see how the AIC value changes.
+
+```{r}
+result = matrix(0,5,1)
+rownames(result) = c("(0,5)","(0,4)","(0,6)","(1,5)","(2,5)")
+colnames(result) = "AIC"
+pq = list(c(0,5),c(0,4),c(0,6),c(1,5),c(2,5))
+for (i in 1:5) {
+    p = pq[[i]][1]
+    q = pq[[i]][2]
+    mod = sarima(y, p, d=0, q, details=FALSE)
+    result[i,1] = mod$fit$aic
+}
+result
+```
+
+The fitted model above is an ARMA(0,5) model of $y_t$. So here I test other four models around this model: ARMA(0,4), ARMA(0,6), ARMA(1,5), ARMA(2,5). The results show that the model ARMA(1,5) has the smallest AIC value, thus being the best model among them.
+
+Thus now we fit an ARMA(1,5) model to the series $y_t$.
+
+```{r}
+mod3 = sarima(y, p=1, d=0, q=5, details=FALSE)
+mod3$ttable
+```
+
+We can see that all the fitted MA coefficients are very significant except for the one for ma2. 
+
+Now let's look at the residuals.
+
+```{r}
+resid3 = resid(mod3$fit)
+Box.test(resid3)
+plot(resid3, xlab="time", ylab="residuals", main="Residual plot")
+abline(h=0, col=2, lty=2, lwd=2)
+acfs = acf2(resid3, max.lag=50, main="Residual ACF and PACF")
+```
+
+The Pierce-Box test shows that the residuals are indeed independently distributed. And in the residual plot there is no sigifinicant pattern left in the residuals. Plus, the residual ACF and PACF plot shows that the residual is a typical white noise sequence.
+
+In short, this fitted ARMA(1,5) model is a better fit of the data than the previous ARMA(0,5) model. So we can conclude that the final fitted ARMA(1,5) model of $y_t$ is:
+$$(1 - 0.5119B)\ (y_t - 0.0038) = (1 -0.3126B + 0.0099B^2 + 0.0195B^3 -0.9702B^4 + 0.3200B^5)\ w_t$$
+where
+$$y_t = (1-B^4)\ x_t = x_t - x_{t-4}$$
+
+
+
+
+
+
+# 5 Frequency Domain Approach
+
+Here we construct a model based on the frequency domain:
+$$
+\begin{array}{ll}
+x_t & = \ T_t + P_t + N_t\\
+    & = \ T_t + A\cos(2\pi\omega t + \phi) + w_t \\
+    & = \ T_t + U_1\cos(2\pi\omega t) + U_2\sin(2\pi\omega t) + w_t
+\end{array}
+$$
+where $T_t$ is a also trend component; $P_t = A\cos(2\pi\omega t + \phi) = U_1\cos(2\pi\omega t) + U_2\sin(2\pi\omega t)$ is the periodic component, where $U_1 = A\cos(\phi)$, $U_2 = -A\sin(\phi)$, $\omega=\frac{1}{4}$; $N_t = w_t$ is the white noise sequence.
+
+Now we fit a model of $x_t \sim U_1 \cos(2\pi \omega t) + U_2 \sin(2\pi \omega t)$ to estimate the periodic component of the data.
+
+```{r}
+n = length(temp)
+c = cos(2*pi*1/4*(1:n))
+s = sin(2*pi*1/4*(1:n))
+mod4 = lm(temp ~ c + s)
+summary(mod4)
+```
+
+```{r}
+u1 = as.numeric(coef(mod4)[2])
+u2 = as.numeric(coef(mod4)[3])
+phi = atan(-u2/u1); phi
+A = u1/cos(phi); A
+```
+
+Results show that the adjusted $R^2 = 0.9381$, and both the coefficients are very significant, where $\hat{U}_1 = -5.7848$ and $\hat{U}_2 = -0.7708$, so the model is a good fit of the data.
+
+Also, we can have that $\hat{\phi} = \arctan(-\frac{\hat{U}_2}{\hat{U}_1}) \approx -0.1325$, and $\hat{A} = \frac{\hat{U}_1}{\cos(\hat{\phi})} \approx -5.8359$.
+
+Therefore, the periodic component is:
+$$
+\begin{array}{ll}
+\hat{P}_t & = \ -5.8359 \cos(0.5\pi t - 0.1325) \\
+    & = \ -5.7848 \cos(0.5\pi t) - 0.7708 \sin(0.5\pi t) \\
+\end{array}
+$$
+
+Now let's look at the residuals.
+
+```{r}
+resid4 = ts(resid(mod4), start=c(1659,2), end=c(2019,4), frequency=4)
+Box.test(resid4)
+plot(resid4, xlab="time", ylab="residuals", main="Residual plot")
+abline(h=0, col=2, lty=2, lwd=2)
+```
+
+The Pierce-Box test shows that the residuals are not independently distributed. And the residual plot presents some obvious trend in residuals as well, especially the obvious increasing trend starting around 1980 to 2019. So the redisuals are not stationary. This makes sense since the trend component $T_t$ is still in the residuals.
+
+Note that the increasing trend at the end of the residuals is much more obvious than the similar increasing trend in the residual of the previous model 1, the simple linear regression model. This is because the trend component in the model 1 ($T_t = \beta t$) has explained a little part of this increasing trend, however, we can see that a simple linear $T_t$ is not enough to explain the entire trend from 1659 to 2019. Hence the nonparametric methods are needed here to figure out the nonlinear smoothing trend component.
+
+Here I use the Smoothing Spline methods to fit the residuals first.
+
+```{r}
+plot(resid4, xlab="time", ylab="residuals", main="Smoothing Spline of Residuals")
+lines(smooth.spline(resid4, spar=NULL), lwd=2, col=2)
+lines(smooth.spline(resid4, spar=1), lwd=2, col=3)  # emphasize the trend
+legend("bottomright", legend=c("spar = NULL","spar = 1 (trend)"), lwd=2, col=c(2,3), cex=0.6)
+```
+
+The smoothing spline method finds the best fitted function $\hat{f}(t)$ of a series $x_t$ by minimizing a compromise between the fit and the degree of smoothness given by:
+$$\sum_{t=1}^n (x_t - f(t))^2 + \lambda \int_1^n (f''(u))^2 du$$
+
+The smoothing parameter $\lambda>0$ controls the degree of smoothness. In R, The smoothing parameter is $spar$, which is monotonically related to $\lambda$. Typically (but not necessarily) $spar$ in $(0,1]$. 
+
+Here we first use the default value of $spar$ to fit the residuals above and get a less smoothed fitting that captures more details of the data. Then, we set $spar = 1$, which indicates large $\lambda$ value that only emphasize the general basic trend of the data while missing the details. 
+
+Now we extract the basic trend from the residuals, and have a look at the left residuals.
+
+```{r}
+trend = smooth.spline(resid4, spar=1)$y
+resid5 = resid4 - trend
+Box.test(resid5)
+plot(resid5, xlab="time", ylab="residuals", main="Residual plot")
+abline(h=0, col=2, lty=2, lwd=2)
+acfs = acf2(resid5, max.lag=100, main="Residual ACF and PACF")
+```
+
+The Pierce-Box test shows that the residuals are still not independently distributed. Though the residual plot has become roughly horizontal, the ACF and PACF plot shows that the residual is still not a white noise sequence. This makes us to go back to the problem of fitting an ARIMA model to the series like what we have done in the previous time domain method.
+
+In this case, we will fit an ARIMA model for the original residuals right after removing the periodic component, i.e. $z_t = x_t - \hat{P}_t$. Let's check its ACF and PACF.
+
+```{r}
+acfs = acf2(resid4, max.lag=100, main="Residual ACF and PACF")
+```
+
+The ACF plot tails off slowly, and the PACF plot cuts off after a relative large value. It's not clear about the good candidate model to use. Hence, to make it simpler, we quickly fit an ARIMA model using auto.arima() function, which can find the best ARIMA model for time series data.
+
+```{r}
+library(forecast)
+auto.arima(resid4)
+```
+
+The results shows that the best model is a Seasonal AIRMA model: $\text{ARIMA}(2,1,1) \times (0,0,2)S$ with drift that is close to zero thus can be ignored:
+$$(1-0.1036B-0.1307B^2)\ (1-B)\ z_t = (1+0.1013B^S+0.1096B^{S2})\ (1-0.9867B) \ w_t$$
+where
+$$z_t = x_t - \hat{P}_t = x_t + 5.8359 \cos(0.5\pi t - 0.1325)$$
+
+This model is a more complicated model than the ARMA(1,5) model obtained from time domian approach. 
+
+
+
+
+
+# 6 Justifications
+
+## 6.1 Claims in Jones & Bradley (1992a)
+
+```{r, fig.width=5, fig.height=3}
+# data plot
+# Gussian Kernel
+plot(ksmooth(time(temp), temp, "normal", bandwidth=10), type="l", lwd=1, col=3, 
+     main="Annual", xlab="year", ylab="temperature", ylim=c(7,11))
+# Spline
+lines(smooth.spline(temp, spar=1), lwd=2, col=2)  # emphasize the trend
+legend("bottomright", legend=c("10-year Gussian Filter","Smoothing Spline"), 
+        lty=1, col=c(3,2), lwd=c(1,2), cex=0.6)
+```
+
+
+```{r, fig.width=10, fig.height=6}
+# four seasons plots
+par(mfrow=c(2,2))
+winter = ts(data$DJF[2:1433], start=1660, end=2019, frequency=1)
+spring = ts(data$MAM, start=1659, end=2019, frequency=1)
+summer = ts(data$JJA, start=1659, end=2019, frequency=1)
+autumn = ts(data$SON, start=1659, end=2019, frequency=1)
+
+# winter
+plot(ksmooth(time(winter), winter, "normal", bandwidth=10), type="l", lwd=1, col=3, 
+     main="Winter", xlab="year", ylab="temperature", ylim=c(2,6))
+lines(smooth.spline(winter, spar=1), lwd=2, col=2)  # emphasize the trend
+legend("bottomright", legend=c("10-year Gussian Filter","Smoothing Spline"), 
+        lty=1, col=c(3,2), lwd=c(1,2), cex=0.6)
+
+# spring
+plot(ksmooth(time(spring), spring, "normal", bandwidth=10), type="l", lwd=1, col=3, 
+     main="Spring", xlab="year", ylab="temperature", ylim=c(6,10))
+lines(smooth.spline(spring, spar=1), lwd=2, col=2)  # emphasize the trend
+legend("bottomright", legend=c("10-year Gussian Filter","Smoothing Spline"), 
+        lty=1, col=c(3,2), lwd=c(1,2), cex=0.6)
+
+# summer
+plot(ksmooth(time(summer), summer, "normal", bandwidth=10), type="l", lwd=1, col=3, 
+     main="Summer", xlab="year", ylab="temperature", ylim=c(13,17))
+lines(smooth.spline(summer, spar=1), lwd=2, col=2)  # emphasize the trend
+legend("bottomright", legend=c("10-year Gussian Filter","Smoothing Spline"), 
+        lty=1, col=c(3,2), lwd=c(1,2), cex=0.6)
+
+# autumn
+plot(ksmooth(time(autumn), autumn, "normal", bandwidth=10), type="l", lwd=1, col=3, 
+     main="Autumn", xlab="year", ylab="temperature", ylim=c(8,12))
+lines(smooth.spline(autumn, spar=1), lwd=2, col=2)  # emphasize the trend
+legend("bottomright", legend=c("10-year Gussian Filter","Smoothing Spline"), 
+        lty=1, col=c(3,2), lwd=c(1,2), cex=0.6)
+```
+
+Jones & Bradley (1992a) studied 12 longest air temperature records, among which the Central England data is even the longest one. They applied 10 year Gaussian filter on the seasonal and annual time sereis data to illustrates variations on decadal and longer timescales. They claimed that all the annual series for temperature data from 1700 to 1850 show some indication of warming, and the plot of annual Northem hemisphere average temperatures data also has a warming trend. Here I also plot the 10-year Gaussian filter for the annual data, and also applied a spline smoothing method with a large $\lambda$ ($spar=1$) to emphasize the trend. We can see that there indeed have an increasing trend, especially from 1900 to 2019. 
+
+In the plot for four seasons separately, we used a same 4-degree window for all the plots for them to be easier compared. We can see that there are warming trend in all seasons, however, the trend is most obvious for Winter, followed by Autumn, Spring, Summer. This order is the same with the order of their standard deviations as shown below.
+
+And the temperature oscillation magnitude in Winter is obviously larger than other three seasons, which is verified below from their standard deviations in the order of Winter, Spring, Summer, and Autumn.
+
+```{r}
+sds = round(c(sd(winter), sd(autumn), sd(spring), sd(summer)), 3)
+sds = matrix(sds, 1, 4)
+colnames(sds) = c("Winter", "Autumn", "Spring", "Summer"); sds
+```
+
+In the paper they claimed that the variability tends to be greatest in Winter followed by Spring, Autumn and Summer. This is almost the same with our results, except that the orders of Spring and Autumn are switched. However, the standard deviations of Autumn and Spring are very close to each other, thus this is not a big conflict with the paper.
+
+
+
+
+
+
+## 6.2 Claims in Benner (1999)
+
+Benner (1999) claimed that there is possible warming trend of the Central England Temperature, and the the temperaute may be related to solar irradiance and sunspot numbers over long periods. However, there is no apparent relationship to the El Nino-Southern Oscillation.
+
+Now we examine the correlation between temperature and the sunspot numbers using cross-spectra analysis.
+
+```{r}
+# downloaded sunsopts data
+sund = read.table("SN_m_tot_V2.0.txt", nrows=3246)
+sund = ts(sund$V4, start=c(1749,1), end=c(2019,6), frequency=12)
+sund = window(sund, c(1749,3), c(2019,5))
+sund = aggregate(sund, nfrequency=4, FUN=mean)
+sund = ts(sund, start=c(1749,2), end=c(2019,2), frequency=4)
+
+# sunspots data in R
+sunr = window(sunspots, c(1749,3), c(1983,11))
+sunr = aggregate(sunr, nfrequency=4, FUN=mean)    
+sunr = ts(sunr, start=c(1749,2), end=c(1983,4), frequency=4)
+
+# plot
+plot.ts(sund, col=1, lty=1, ylim=c(0,350),
+        main="Sunspot Numbers", xlab="year", ylab="numbers")
+lines(ksmooth(time(sund), sund, "normal", bandwidth=10), col=2, lwd=2)
+lines(sunr, lty=1, col=3)
+lines(ksmooth(time(sunr), sunr, "normal", bandwidth=10), col=4, lwd=2)
+legend("topleft", legend=c("Download data (2019)", "R sunspots data (1983)"), lty=1, col=c(1,3), cex=0.5)
+legend("topright", legend=c("10-year Gaussian Filter (2019)", "10-year Gausisan Filter (1983)"), lty=1, col=c(2,4), cex=0.5)
+```
+
+Here I used two datasets for sunspot number data. One is the data that I downloaded online from SILS website (http://www.sidc.be/silso/datafiles), which is from 1749 to 2019. Another is the $sunspots$ data in R, which is from 1749 to 1983. Above figure shows the two raw data and their corresponding 10-year Gaussian smoothing that emphasizes the changes over long periods. We can see that the two data are not the same, but they have similar trends during 1749 to 1970. Plus, the data of 1983 has an incresing trend from 1990 to 1983, however, the data of 2019 is increasing from 1990 to 1983 but starting decreasing from 1983 to 2019.
+
+```{r, fig.width=8, fig.height=3}
+# 10-year Gaussian smoothed temperature data
+temp_s = ts(ksmooth(time(temp), temp, "normal", bandwidth=10)$y,
+            start=c(1659,2), end=c(2019,4), frequency=4)
+
+# subset temp
+temp_s_d = window(temp_s, start=c(1749,2), end=c(2019,2))
+temp_s_r = window(temp_s, start=c(1749,2), end=c(1983,4))
+
+# spline smoothed sonspots data
+sund_s = ts(ksmooth(time(sund), sund, "normal", bandwidth=10)$y,
+            start=c(1749,2), end=c(2019,2), frequency=4)
+sunr_s = ts(ksmooth(time(sunr), sunr, "normal", bandwidth=10)$y,
+            start=c(1749,2), end=c(1983,4), frequency=4)
+
+# coherence
+par(mfrow=c(1,2))
+
+sunr_temp = mvspec(cbind(sunr_s, temp_s_r), span=19, plot=FALSE)
+plot(sunr_temp, plot.type="coh", ci.lty=2, main="Sunspots & Temperature (1983)")
+f = qf(0.999, 2, sunr_temp$df-2)
+C = f/(18+f)  # L=19
+abline(h=C, col=2)
+
+sund_temp = mvspec(cbind(sund_s, temp_s_d), span=19, plot=FALSE)
+plot(sund_temp, plot.type="coh", ci.lty=2, main="Sunspots & Temperature (2019)")
+f = qf(0.999, 2, sund_temp$df-2)
+C = f/(18+f)  # L=19
+abline(h=C, col=2)
+```
+
+The squared coherence shows that the sunspot number is highly correlated with temperature data over long periods using both datasets. The red line is the at the $\alpha=0.001$ significance level. Note that these data are smoothed using 10-year Gaussian filter before analyzing the coherence because we want to look at their correlation over long periods.
+
+Now let's look at the correlation between temperature data and the Southern Oscillation data.
+
+```{r}
+# soi data in R
+soir = window(soi, c(1950,3), c(1987,8))
+soir = aggregate(soir, nfrequency=4, FUN=mean)    
+soir = ts(soir, start=c(1950,2), end=c(1987,3), frequency=4)
+
+# plot
+plot.ts(soir, col=1, lty=1, main="SOI", xlab="year", ylab="soi", ylim=c(-0.7,1))
+lines(ksmooth(time(soir), soir, "normal", bandwidth=1), col=2, lwd=2)
+lines(smooth.spline(soir), col=3, lwd=1)
+legend("topleft", legend="SOI data", lty=1, col=1, cex=0.5)
+legend("topright", legend=c("1-year Gaussian Filter","Spline Smoothing"), lty=1, col=c(2,3), cex=0.5)
+```
+
+Here I used the SOI (Southern Oscillation Index) data in R, which is from Jan, 1950 to Sep, 1987. Above left figure shows the SOI raw data and its corresponding smoothers. 10-year Gaussian will over smooth this dataset since it only has 37 years of data. So I used 1-year Gausisan filter and the smoothing spline filter.
+
+```{r, fig.width=8, fig.height=3}
+# 10-year Gaussian temperature data
+temp_s1 = ts(ksmooth(time(temp), temp, "normal", bandwidth=1)$y,
+            start=c(1659,2), end=c(2019,4), frequency=4)
+temp_s2 = ts(smooth.spline(temp)$y,
+            start=c(1659,2), end=c(2019,4), frequency=4)
+
+# subset temp
+temp_s1 = window(temp_s1, start=c(1950,2), end=c(1987,3))
+temp_s2 = window(temp_s2, start=c(1950,2), end=c(1987,3))
+
+# 10-year Gaussian soi data
+soir_s1 = ts(ksmooth(time(soir), soir, "normal", bandwidth=1)$y,
+            start=c(1950,2), end=c(1987,3), frequency=4)
+soir_s2 = ts(smooth.spline(soir)$y,
+            start=c(1950,2), end=c(1987,3), frequency=4)
+
+
+# coherence
+par(mfrow=c(1,2))
+
+soir_temp1 = mvspec(cbind(soir_s1, temp_s2), span=19, plot=FALSE)
+plot(soir_temp1, plot.type="coh", ci.lty=2, main="SOI & Temperature (1-year)")
+f = qf(0.999, 2, soir_temp1$df-2)
+C = f/(18+f)  # L=19
+abline(h=C, col=2)
+
+soir_temp2 = mvspec(cbind(soir_s2, temp_s2), span=19, plot=FALSE)
+plot(soir_temp2, plot.type="coh", ci.lty=2, main="SOI & Temperature (10-year)")
+f = qf(0.999, 2, soir_temp2$df-2)
+C = f/(18+f)  # L=19
+abline(h=C, col=2)
+```
+
+The squared coherence shows that the SOI data is partly correlated with temperature data if we use the 1-year Gussian filter. And they are not correlated if we use the spline smoothing method. The red line is the at the $\alpha=0.001$ significance level. 
+
+Therefore, if we just look at thier correlation in the short term, then they are not correlated. And if we look at their correlation at 1-year long term, they have correlation at higher frequencies.
+
+
+
+
+
+## 6.3 Claims in Vaidyanathan (2016)
+
+Vaidyanathan (2016) claimed that the the actual temperature increasing rate after 2000 is actually lower than their predicted temperature increasing rate using the model built from past values. This indicates that the warming trend in fact slows down after 2000.
+
+To examine this conclusion, we use the previous ARMA(1,5) model for series $y_t = x_t - x_{t-4}$, but we fit it using the data before 2000, and make a prediction for the period 2001-2019.
+
+```{r}
+temp2000 = window(temp, start=c(1659,2), end=c(2000,4))
+y2000 = diff(temp2000, lag=4)
+mod = arima(y2000, order=c(1,0,5))
+y_pred = predict(mod, n.ahead=4*19)$pred
+
+n = length(temp2000)
+x_pred = y_pred[1:4] + temp2000[(n-3):n]
+for (i in 5:length(y_pred)) {
+    x_pred[i] = y_pred[i] + x_pred[i-1]
+}
+x_pred = ts(x_pred, start=c(2001,1), end=c(2019,4), frequency=4)
+```
+
+
+
+```{r, fig.width=6, fig.height=4}
+# data plot
+temp_s = ts(ksmooth(time(temp), temp, "normal", bandwidth=10)$y,
+            start=c(1659,2), end=c(2019,4), frequency=4)
+plot(temp_s, type="l", xlim=c(1659,2020), ylim=c(8,11),
+     main="Central England Temperatures", xlab="year", ylab="temperature")
+
+plot_x_pred = window(x_pred,c(2002,1),c(2019,4))
+points(plot_x_pred, col=2, cex=0.5)
+
+legend("bottomright", legend=c("Data","Predict"), 
+        lty=1, col=c(1,2), cex=0.6)
+```
+
+Here we used 10-year Guassian filter for the original data. We can see that the increasing slope of the predictions from the model built using data from 1659 to 2000 is larger than the original data from 2001 to 2019. As a result, we can say that the temperature is still increasing from 2001 to 2019, but the increasing rate is lower than that of previous years. Therefore, there is a slow down of the global warming in the 2000s.
+
+This phenomenon can be also justified using the correlation between the sunspot number data and the temperature data. When we use the downloaded sunspot number data up to 2019, there is a strong correlation between the sunspot number and the temperature. Thus, when the sunspot data is decreasing from 2000 to 2019, then there is a hint that the increasing rate of the global warming may slow down as well.
+
+
+
+
+
+
+# 7 Conclusions
+
+We tried two different approaches with three different models to fit the Central England Temperature data. The first model is a simpler linear regression model using indicator variables for four seasons, but it is not a good model for being too simple. Next, we built an ARMA(1,5) model to the differenced series $y_t = x_t - x_{t-4}$, it turns out that this model is a pretty good fit. Also, the model through frequency domain approach leads to a Seasonal AIRMA model: $\text{ARIMA}(2,1,1) \times (0,0,2)S$ for the data after removing the periodic pattern. Both the later two models are working well, but the model from the frequency approach is a little complicated than the model from time domian approach.
+
+Then we justified the claims in the three papers and concluded that there indeed have an increasing trend of general temperature, especially from 1900 to 2019, while the temperature variations is the largest in winter season. Also, there is a strong correaltion between the sunspot number with the temperature, either using the data from R (up to 1983) or using data from SILS website (up to 2019). So the sunspot number may be one of the cause of the temperature changing. However, there is no significant correlation between Southern Oscillation and the temperature.  In the end, we used the ARMA model from time domain approach and proved that the global warming rate indeed has slowed down in 2000s, which might have some hints from the decreasing trend of sunspot number in 2000s.
+
+
+
+
+
+
+
+# References
+
+[2] JONES, P. D. & BRADLEY, R. S. (1992a). Climatic variations in the longest instrumental records. In _Climate Since A.D. 1500_, Ed. R. S. Bradley and P. D. Jones, London: Routledge. pp. 246-68.
+
+[3] BENNER, T. C. (1999). Central England temperatures: Long-term variability and teleconnections. _Int. J. Climatol._ 19, 391-403.
+
+[5] Gayathri Vaidyanathan (February 25, 2016) Did Global Warming Slow Down in the 2000s, or Not? Scientists clarify the recent confusion.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

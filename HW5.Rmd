@@ -1,0 +1,434 @@
+---
+title: "STAT33600 Homework 5"
+author: "Sarah Adilijiang"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+## Section 3.4 Forecasting
+
+## 3.17
+
+Because the ARMA prediction error is:
+$$x_{n+m} - \tilde{x}_{n+m} = \sum_{j=0}^{m-1} \psi_j w_{n+m-j}$$
+
+So for a fixed sample size $n$ and for $k\geq1$, the correlation between the prediction errors are:
+
+$$E[(x_{n+m} - \tilde{x}_{n+m})(x_{n+m+k} - \tilde{x}_{n+m+k})] = E[(\sum_{j=0}^{m-1} \psi_j w_{n+m-j})(\sum_{i=0}^{m+k-1} \psi_i w_{n+m+k-i})]$$
+
+$$= E[(\sum_{j=0}^{m-1} \psi_j w_{n+m-j})(\sum_{j=-k}^{m-1} \psi_{j+k} w_{n+m-j})] = E[(\sum_{j=0}^{m-1} \psi_j w_{n+m-j})(\sum_{j=0}^{m-1} \psi_{j+k} w_{n+m-j})]$$
+
+$$= \sum_{j=0}^{m-1} \psi_j\psi_{j+k} E(w_{n+m-j}^2) \ = \ \sigma_w^2 \sum_{j=0}^{m-1} \psi_j\psi_{j+k} \ \neq \ 0$$
+
+Therefore, we've verified the statement (3.87), that for a fixed sample size, the ARMA prediction errors are correlated.
+
+
+
+
+
+
+
+
+## Section 3.5 Estimation
+
+## 3.18
+
+```{r, warning=FALSE, fig.width=12, fig.height=5}
+library(astsa)
+plot(cmort, main="Average Weekly Cardiovascular Mortality")
+```
+
+
+### (a) & (b)
+
+(1) Fitting using Linear Regression
+
+```{r}
+# fit an AR(2) model to x_t using linear regression by OLS
+( lr = ar.ols(cmort, order=2) )
+lr$asy.se.coef  # standard errors of the estimates
+```
+
+
+(2) Fitting using Yule-Walker estimation
+
+```{r}
+# fit an AR(2) model to x_t using Yule-Walker estimation
+( yw = ar.yw(cmort, order=2) )
+sqrt(diag(yw$asy.var.coef))  # standard errors of the estimates
+```
+
+
+```{r}
+# compute the standard errors of the estimates by hand
+sample_acf = acf(cmort, type="correlation", plot=FALSE)$acf
+rho_0 = sample_acf[1]
+rho_1 = sample_acf[2]
+rho_2 = sample_acf[3]
+rho = c(rho_1, rho_2)
+R = matrix(c(rho_0,rho_1,rho_1,rho_0), nrow=2, byrow=TRUE)
+n = length(cmort)
+cov_matrix = 1/n * as.numeric(1 - t(rho) %*% solve(R) %*% rho) * solve(R)
+se = sqrt(diag(cov_matrix))
+se
+```
+
+Here the computation is from Property 3.10:
+$$\sqrt{n} (\hat{\beta}-\beta) \rightarrow N(0, \sigma_w^2\Gamma_{p,q}^{-1})$$
+$$\hat{\beta} \rightarrow N(\beta, \ \frac{1}{n}\sigma_w^2\Gamma_{p,q}^{-1}) $$
+
+Here for the AR(2) model, we have $p=2,q=0$, so :
+$$
+\Gamma_{p,q} = \Gamma_{p=2} = \left( \begin{matrix} 
+\gamma(0) & \gamma(1) \\
+\gamma(1) & \gamma(0)
+\end{matrix} \right), \ \ \ \ \ 
+\sigma_w^2 = \gamma(0) - \gamma_2^T\Gamma_2^{-1}\gamma_2
+$$
+
+So the variance-covariance matrix of $\hat{\beta}$ is:
+$$\frac{1}{n}\sigma_w^2\Gamma_2^{-1} \ = \frac{1}{n} (\gamma(0) - \gamma_2^T\Gamma_2^{-1}\gamma_2) \Gamma_2^{-1} = \frac{1}{n} (1 - \rho_2^T R_2^{-1}\rho_2) R_2^{-1}$$
+
+
+
+Results:
+
+The parameters estimated by linear regression are 0.4286 and 0.4418, respectivey, and their corresponding estimated standard errors are 0.03979433 and 0.03976163, respectively.
+
+While the parameters estimated by Yule-Walker methods are 0.4339 and 0.4376, respectivey, and their corresponding standard errors are both 0.03989471.
+
+We can see that the two methods produce very similar results for AR(2) model.
+
+
+
+
+
+
+
+
+## 3.20
+
+```{r, fig.height=6, fig.width=12}
+set.seed(1)
+for (i in 1:3) {
+    x = arima.sim(model=list(ar=0.9, ma=-0.9), n=500)
+    plot(x, main=paste("Simulated data #",i), ylim=c(-3,3.5))
+    acf2(x, max.lag=499, main=paste("Sample ACF and PACF for data #",i))
+    print(sarima(x,p=1,d=0,q=1, details=FALSE)$ttable)  # fit an ARMA(1,1) model
+}
+```
+
+The true model is:
+$$x_t = 0.9 x_{t-1} + w_t - 0.9w_{t-1}$$
+$$x_t - 0.9 x_{t-1} = w_t - 0.9w_{t-1}$$
+$$(1 - 0.9B) x_t = (1 - 0.9B) w_t$$
+$$x_t = w_t \sim \text{iid} \ N(0,1)$$
+
+So this ARMA(1,1) model is actually a white noise sequence. The plot of the simulated data does look like a series of white noise.
+
+The sample ACF and PACF are not significantly different from 0 (all within the blue lines) for all the three simulated data when lag $h>0$. This again is consistent with the pattern of a white noies series.
+
+And for the fitted ARMA(1,1) model, the estimated results from three simulations are quite different from each other, and they are all far away from the true setting where $\text{ar}=0.9, \text{ma}=-0.9$ with high standard errors, resulting in high p-values. This makes sense since we are fitting an ARMA(1,1) model to a white noise sequence by mistakenly ignoring the parameter redundancy, so the fitted models will not be good, and the estimates of the coefficients will not be significant.
+
+
+
+
+
+
+
+
+## 3.24
+
+### (a)
+
+(1) Determine the mean function
+
+Since $E(x_t) = \mu$, so we have:
+
+$$\mu = E(x_t) = E(\alpha + \phi x_{t-1} + w_t + \theta w_{t-1}) =  \alpha + \phi E(x_{t-1}) = \alpha + \phi\mu$$
+
+$$\Rightarrow \ \ \ \ \mu = \frac{\alpha}{1-\phi}$$
+which is a constant that does not depend on time $t$.
+
+
+
+
+(2) Find the Autocovariance & ACF
+
+The model can be also written as:
+$$x_t = \mu(1-\phi) + \phi x_{t-1} + w_t + \theta w_{t-1}$$
+$$(x_t - \mu) = \phi (x_{t-1} - \mu) + w_t + \theta w_{t-1}$$
+
+Let's set $y_t = x_t - \mu$ , then the model is:
+$$y_t = \phi y_{t-1} + w_t + \theta w_{t-1}$$
+where $|\phi|<1, |\theta|<1$.
+
+
+Since:
+$$\gamma_x(h) = Cov(x_{t+h},x_t) = Cov(y_{t+h}+\mu,y_t+\mu) = Cov(y_{t+h},y_t) = \gamma_y(h)$$
+So we only need to find the autocovariance of series $y_t$.
+
+The ARMA(1,1) process:
+$$y_t = \phi y_{t-1} + \theta w_{t-1} + w_t$$
+$$(1-\phi B)y_t = (1+\theta B)w_t$$
+
+Because $|\phi|<1,|\theta|<1$, so the roots for both polynomials $\phi(z) = 1 - \phi z$ and $\theta(z)= 1 + \theta z$ are outside the unit circle, so series $y_t$ is both causal and intertible.
+
+$y_t$ can be written as:
+$$y_t = \sum_{j=0}^\infty \psi_jw_{t-j}$$
+
+
+The autocorrelation function for $y_t$ is:
+$$\gamma_y(h) = Cov(y_{t+h}, y_t) = Cov(\phi y_{t+h-1} + \theta w_{t+h-1} + w_{t+h}, \ y_t)$$
+
+$$= \phi\gamma_y(h-1) + \theta \ Cov(w_{t+h-1}, \sum_{j=0}^\infty \psi_jw_{t-j}) + Cov(w_{t+h}, \sum_{j=0}^\infty \psi_jw_{t-j})$$
+
+$$= \phi\gamma_y(h-1) + \theta \psi_{1-h}\sigma_w^2 + \psi_{-h}\sigma_w^2 \ = \ \phi\gamma_y(h-1) \ \ \ \ \ \ (h=2,3,...)$$
+
+So the autocorrelation function satisfies:
+$$\gamma_y(h) - \phi\gamma_y(h-1) = 0 \ \ \ \ \ \ (h=2,3,...)$$
+
+And its general solution is:
+$$\gamma_y(h) = \phi \gamma_y(h-1) = \phi^2 \gamma_y(h-2) = \cdots = \phi^{h-1} \gamma_y(1) = c\ \phi^h  \ \ \ \ \ \ (h=1,2,...), \ \ \ \text{where} \ c=\frac{\gamma_y(1)}{\phi} \ \ \ (*)$$
+
+Since:
+$$y_t = \phi y_{t-1} + \theta w_{t-1} + w_t = \sum_{j=0}^\infty \psi_jw_{t-j}  \ \ \ \ \ \text{where} \ \psi_0=1, \psi_j=(\theta + \phi)\phi^{j-1} \ \forall j\geq1$$
+
+so we have: $\psi_0 = 1, \psi_1 = \theta + \phi$
+
+Thus the initial conditsions are:
+$$\gamma_y(1) = \phi\gamma_y(0) + \theta \psi_{0}\sigma_w^2 + \psi_{-1}\sigma_w^2 = \phi\gamma_y(0) + \theta\sigma_w^2 \ \ \ \ \ (1)$$
+
+$$\gamma_y(0) = \phi\gamma_y(-1) + \theta \psi_{1}\sigma_w^2 + \psi_{0}\sigma_w^2  = \phi\gamma_y(1) + [\theta(\theta + \phi) + 1]\sigma_w^2 \ \ \ \ \ (2)$$
+
+Substitue (1) into (2), we get:
+$$\gamma_y(0) = \phi (\phi\gamma_y(0) + \theta\sigma_w^2) + [\theta(\theta + \phi) + 1]\sigma_w^2 = \phi^2\gamma_y(0) + (\theta^2+2\phi\theta+1)\sigma_w^2$$
+
+$$\Rightarrow \gamma_y(0) = \sigma_w^2 \frac{\theta^2+2\phi\theta+1}{1-\phi^2}$$
+
+$$\Rightarrow \gamma_y(1) = \phi\sigma_w^2 \frac{\theta^2+2\phi\theta+1}{1-\phi^2} + \theta\sigma_w^2 = \ \sigma_w^2 \frac{(\theta+\phi)(1+\theta\phi)}{1-\phi^2}$$
+
+Take the value of $\gamma_y(1)$ into the function (*), we can get that:
+$$\gamma_x(h) = \gamma_y(h) = c\ \phi^h = \phi^{h-1} \gamma(1) = \phi^{h-1}\sigma_w^2 \frac{(\theta+\phi)(1+\theta\phi)}{1-\phi^2} \ \ \ \ \ \ (h=1,2,...)$$
+
+Therefre, the autocovariance function is:
+$$
+\gamma_x(h) = \gamma_y(h) = 
+\left\{ \begin{array}{ll} 
+\sigma_w^2 \frac{\theta^2+2\phi\theta+1}{1-\phi^2} &  if \ h=0  \\
+\phi^{h-1}\sigma_w^2 \frac{(\theta+\phi)(1+\theta\phi)}{1-\phi^2} &   if \ h \geq 1
+\end{array} \right.
+$$
+
+
+And the ACF function is:
+$$
+\rho_x(h) = \rho_y(h) = \frac{\gamma_y(h)}{\gamma_y(0)} = 
+\left\{ \begin{array}{ll} 
+1 &  if \ h=0  \\
+\frac{(\theta+\phi)(1+\theta\phi)}{\theta^2+2\phi\theta+1} \phi^{h-1} &   if \ h \geq 1
+\end{array} \right.
+$$
+
+
+
+
+(3) Prove Weakly & Strictly Stationary
+
+From (1) and (2), we get that the mean function is a constant that does not depend on time $t$, and the autocovariance function only depends on lag $h$, so the process $x_t$ is weakly stationary.
+
+To prove the $y_t$ is strictly stationary, we need to prove that the distribution of the collection of values $\{y_1,y_2,...,y_n\}$ is identical to that of the time shifted set $\{y_{1+h},y_{2+h},...,y_{n+h}\}$.
+
+Since:
+$$y_t = \phi y_{t-1} + \theta w_{t-1} + w_t = \sum_{j=0}^\infty \psi_jw_{t-j}  \ \ \ \ \ \text{where} \ \psi_0=1, \psi_j=(\theta + \phi)\phi^{j-1} \ \forall j\geq1$$
+
+Suppose the characteristic function of iid random variable $w_t$ is $\varphi_w(\lambda) = E(e^{i\lambda w})$, and the joint characteristic function of $y_1,...y_n$ is $\varphi_{y_1,...y_n}(\lambda_1,...,\lambda_n)$.  Then essential part of the exponent of $\varphi_{y_1,...y_n}(\lambda_1,...,\lambda_n)$ is:
+
+$$\sum_{i=1}^n \lambda_i y_i = \sum_{i=1}^n \lambda_i \left( \sum_{j=0}^\infty \psi_jw_{i-j} \right) = \sum_{i=1}^n \sum_{j=0}^\infty \lambda_i \psi_j w_{i-j} = \sum_{k=0}^n \left( \sum_{i=1}^n \lambda_i \psi_{i-k} \right) w_k = \sum_{k=0}^n c_k w_k$$
+where $\psi_j=0 \ \forall j<0, \ \ \psi_0=1, \ \ \psi_j=(\theta + \phi)\phi^{j-1} \ \forall j\geq1$
+
+So the joint characteristic function is:
+$$\varphi_{y_1,...y_n}(\lambda_1,...,\lambda_n) = E(e^{i \ (\sum_{i=1}^n \lambda_i y_i)}) = E(e^{i\sum_{k=0}^n c_k w_k}) = E(\prod_{k=0}^n e^{ic_kw_k})$$
+
+$$= \prod_{k=0}^n E(e^{ic_kw_k}) = \prod_{k=0}^n \varphi_w(c_k) = \prod_{k=0}^n \varphi_w(\sum_{i=1}^n \lambda_i \psi_{i-k})$$
+which only depends on $\lambda_1,...,\lambda_n$ and the values of $\psi_0,...,\psi_n$.
+
+So the joint characteristic function for the shifted set $\{y_{1+h},y_{2+h},...,y_{n+h}\}$ is the same as the that of $\{y_1,y_2,...,y_n\}$, that is:
+$$\varphi_{y_{1+h},y_{2+h},...,y_{n+h}}(\lambda_1,...,\lambda_n) \ = \ \varphi_{y_1,...y_n}(\lambda_1,...,\lambda_n)$$
+
+Therefore, the distribution of $\{y_1,y_2,...,y_n\}$ is identical to that of the time shifted set $\{y_{1+h},y_{2+h},...,y_{n+h}\}$, which means the distribution of $\{x_1,x_2,...,x_n\}$ is identical to that of the time shifted set $\{x_{1+h},x_{2+h},...,x_{n+h}\}$, so the series $x_t$ is strictly stationary.
+
+
+
+
+
+### (b)
+
+Since $x_t$ is a linear process of the form:
+$$x_t = \mu + y_t = \mu + \sum_{j=0}^\infty \psi_j w_{t-j}  \ \ \ \ \ \text{where} \ \psi_0=1, \psi_j=(\theta + \phi)\phi^{j-1} \ \forall j\geq1$$
+
+And:
+$$\sum_{j=0}^\infty \psi_j = 1 + (\theta + \phi) \sum_{j=1}^\infty \phi^{j-1} = 1 + (\theta + \phi) \lim_{n\rightarrow\infty} \frac{1-\phi^n}{1-\phi} = 1 + \frac{\theta + \phi}{1-\phi} = \frac{1+\theta}{1-\phi} \neq 0$$
+
+Thus by Theorem A.5, we have that:
+$$\bar{x}_n \sim \text{AN} (\mu, n^{-1}V)$$
+where
+$$V = \sum_{h=-\infty}^\infty \gamma_x(h) = \sigma_w^2 \left(\sum_{j=-\infty}^\infty \psi_j\right)^2 = \sigma_w^2 \left(\sum_{j=0}^\infty \psi_j\right)^2 = \sigma_w^2 \left(\frac{1+\theta}{1-\phi}\right)^2$$
+
+So, we get that:
+$$\bar{x}_n \sim \text{AN} \left( \frac{\alpha}{1-\phi}, \ n^{-1}\sigma_w^2 \left(\frac{1+\theta}{1-\phi}\right)^2 \right) $$
+
+
+
+
+
+
+
+## Section 3.6 Integrated Models for Nonstationary Data
+
+
+## 3.28
+
+The model is:
+$$x_t = x_{t-1} + w_t - \lambda w_{t-1} \ \ \ \ (|\lambda|<1)$$
+
+Set $y_t = x_t - x_{t-1}$, so the model can be written as:
+$$y_t = w_t - \lambda w_{t-1} \ \ \ \ (|\lambda|<1)$$
+
+Since $|\lambda|<1$, then the series $y_t$ is invertible, so we have invertible representation:
+$$w_t = y_t + \lambda y_{t-1} = y_t + \lambda(y_{t-1} + \lambda y_{t-2}) = y_t + \lambda y_{t-1} + \lambda^2 y_{t-2} = \sum_{j=0}^\infty \lambda^j y_{t-j}$$
+$$= \sum_{j=0}^\infty \lambda^j (x_{t-j} - x_{t-j-1}) = \sum_{j=0}^\infty \lambda^j x_{t-j} - \sum_{j=0}^\infty \lambda^j x_{t-j-1} = x_t + \sum_{j=1}^\infty (\lambda^j - \lambda^{j-1})x_{t-j}$$
+
+$$\Rightarrow x_t = w_t - \sum_{j=1}^\infty (\lambda^j - \lambda^{j-1})x_{t-j} = w_t + \sum_{j=1}^\infty (1-\lambda)\lambda^{j-1} x_{t-j}$$
+
+
+
+
+
+
+## 3.29
+
+### (a)
+
+The ARIMA(1,1,0) model with drift:
+
+$$(1-\phi B)(1-B) x_t = \delta + w_t$$
+
+Let $y_t = (1-B)x_t = x_t - x_{t-1} = \nabla x_t$, which is a AR(1) model, so the model can be converted to the AR(1):
+$$(1-\phi B)y_t = \delta + w_t $$
+$$y_t = \phi y_{t-1} + \delta + w_t$$
+
+$$\Rightarrow y_{n+j} = \phi (\phi y_{n+j-2} + \delta + w_{n+j-1}) + \delta + w_{n+j} = \phi^2 y_{n+j-2} + (1+\phi)\delta + \phi w_{n+j-1} + w_{n+j}$$
+
+$$= \cdots = \phi^j y_n + (1+\phi+\cdots+\phi^{j-1})\delta + \sum_{k=0}^{j-1} \phi^k w_{n+j-k}$$
+
+
+So the forcasts $y_{n+j}$ based on $\{y_1,...,y_n\}$ is:
+
+$$y_{n+j}^n = E(y_{n+j}|y_1,...,y_n) = E\left( \phi^j y_n + (1+\phi+\cdots+\phi^{j-1})\delta + \sum_{k=0}^{j-1} \phi^k w_{n+j-k} \ \big| \ y_1,...,y_n \right)$$
+
+$$= \phi^j y_n + (1+\phi+\cdots+\phi^{j-1})\delta$$
+
+
+
+
+### (b)
+
+From (a), we have that:
+$$x_{n+j}^n  - x_{n+j-1}^n = y_{n+j}^n = \phi^j y_n + (1+\phi+\cdots+\phi^{j-1})\delta = \phi^j (x_n - x_{n-1}) + \frac{1-\phi^j}{1-\phi}\delta$$
+
+$$\Rightarrow \ \ x_{n+m}^n = x_n + \sum_{j=1}^m \left( x_{n+j}^n  - x_{n+j-1}^n \right) = x_n + \sum_{j=1}^m \left( \phi^j (x_n - x_{n-1}) + \frac{1-\phi^j}{1-\phi}\delta \right)$$
+
+$$= x_n + (x_n - x_{n-1}) \frac{\phi(1-\phi^m)}{1-\phi} + \frac{\delta}{1-\phi} \left[ m - \frac{\phi(1-\phi^m)}{1-\phi} \right]$$
+
+
+
+
+### (c)
+
+As shown in (3.145), the mean-squared prediction error can be approximated by:
+$$P_{n+m}^n = \sigma_w^2 \sum_{j=0}^{m-1} \psi_j^{*2}$$
+where $\psi_j^*$ is the coefficient of $z^j$ in $\psi^*(z)$, that is:
+
+$$\psi^*(z) = \frac{\theta(z)}{\phi(z)(1-z)^d} = \frac{1}{(1-\phi z)(1-z)} = \frac{1}{1-(1+\phi)z+\phi z^2}= \sum_{j=0}^\infty \psi_j^* z^j$$
+
+$$\Rightarrow \ \ \ \ \ 1 = \psi^*(z) (1-(1+\phi)z+\phi z^2) = (\sum_{j=0}^\infty \psi_j^* z^j) \ (1-(1+\phi)z+\phi z^2)$$
+
+$$= (\psi_0^* + \psi_1^* z + \psi_2^* z^2 + \cdots) \ (1-(1+\phi)z+\phi z^2)$$
+
+$$= \psi_0^* + [\psi_1^* - (1+\phi)\psi_0^*]\ z + \sum_{j=2}^\infty [ \psi_j^* - (1+\phi)\psi_{j-1}^* + \phi\psi_{j-2}^* ]\ z^j $$
+
+Therefore, we can get that:
+$$\psi_0^* = 1, \ \ \ \psi_1^* = 1+\phi, \ \ \ \psi_j^* - (1+\phi)\psi_{j-1}^* + \phi\psi_{j-2}^*=0 \ \forall \ j\geq2$$
+
+To solve for sequence $\psi_j^*$, set polynomial $\phi(z) = 1 - (1+\phi)z + \phi z^2 = (1-z)(1-\phi z) = 0$, get solutions $z_1 = 1, z_2 = 1/\phi$, so the general form of $\psi_j^*$ is: $\psi_j^* = c_1 z_1^{-j} + c_2 z_2 ^{-j} = c_1 + c_2 \phi^j$. Using the initial consitions $\psi_0^* = 1, \psi_1^* = 1+\phi$, we can get that:
+$$\psi_j^* = \frac{1}{1-\phi} - \frac{\phi}{1-\phi} \phi^j = \frac{1 - \phi^{j+1}}{1-\phi} \ \ \ \ \ (\forall j\geq0)$$
+
+Then,
+$$P_{n+m}^n = \sigma_w^2 \sum_{j=0}^{m-1} \psi_j^{*2} = \sigma_w^2 \sum_{j=0}^{m-1} \left( \frac{1 - \phi^{j+1}}{1-\phi} \right)^2 = \frac{\sigma_w^2}{(1-\phi)^2} \sum_{j=0}^{m-1} ( 1 - \phi^{j+1} )^2$$
+
+
+
+
+
+
+
+## 3.30
+
+```{r, warning=FALSE, fig.width=12, fig.height=6}
+library(astsa)
+x = log(varve)[1:100]
+lambda = c(0.25, 0.50, 0.75)
+
+# computation function
+pred = function(lambda){
+    x_pred = vector(length=100)
+    x_pred[1] = x[1]
+    for (i in 2:100) {
+        x_pred[i] = (1-lambda)*x[i-1] + lambda*x_pred[i-1]
+    }
+    return(x_pred)
+}
+
+
+
+# plot
+plot(x, type="o", xlab="Time" , ylab="log(varve)", col=1)
+for (i in 1:length(lambda)) {
+    lines(pred(lambda[i]), lty=1, col=i+1)
+    # same as:
+    #x.ima = HoltWinters(x, alpha=1-lambda[i], beta=FALSE, gamma=FALSE)
+    #lines(x.ima$fitted[,"xhat"], lty=1, col=i+1)
+}
+legend("bottomleft", legend=c("lambda=0.25","lambda=0.50","lambda=0.75"), lty=1, col=c(2,3,4))
+```
+
+
+From (3.151), the truncated forcasts are:
+$$\tilde{x}_{t+1}^t = (1-\lambda)x_t + \lambda\tilde{x}_t^{t-1}, \ \ \ \ t\geq1 \ \ \ \ \ \ \ \text{and} \ \ \ \ \tilde{x}_1^0 = x_1$$
+
+The results are plotted in the above figure. We can see that all the EWMAs are within the oscillation range of the original data, and the EWMAs are all smoother than the original data. Plus, when $\lambda$ is larger, the EWMA provides smoother forecasts.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

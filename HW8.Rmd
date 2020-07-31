@@ -1,0 +1,118 @@
+---
+title: "STAT33600 Homework 8"
+author: "Sarah Adilijiang"
+output:
+  html_notebook: default
+  pdf_document: default
+---
+
+## Section 5.1 Long Memory ARMA and Fractional Differencing
+
+## 5.1
+
+### (a)
+
+```{r, warning=FALSE, fig.width=9, fig.height=4}
+library(astsa)
+plot(arf, main="Data Plot")
+```
+
+Comment:
+
+There is a slowly increasing trend from time 0 to 800 and an decreasing trend from time 800 to 1000.
+
+
+
+### (b)
+
+```{r}
+# plot of ACF & PACF
+acfs = acf2(arf, max.lag=100, main="Sample ACF and PACF")
+
+# PACF values of lag 1:5
+acf(arf, type="partial", plot=FALSE)$acf[1:5]
+```
+
+Comment:
+
+The ACF plot decays very slowly, which indicates the series is a long memory process. And the PACF plot cuts off after lag = 1, which indicates the series has the properties of an AR(1) process, i.e. $\phi(B) = 1 - \phi B$. And the value of PACF at lag = 1 is $\phi_{11} = \phi = 0.964857649$, which is close to 1 in the plot. Thus the series is like a nonstationary random walk model with $\phi(B) = 1 - B$.
+
+
+
+### (c)
+
+```{r, warning=FALSE}
+library(fracdiff)
+farima = fracdiff(arf, nar=1) # AR(1)
+summary(farima)
+```
+
+Comment:
+
+The estimated $\hat{d} = 0.264631$ and $\hat{\phi} = 0.863068$, and both are very significant.
+
+
+
+### (d)
+
+The data plot in (a) shows a slowly increasing trend from time 0 to 800 and an decreasing trend from time 800 to 1000.
+
+The ACF plot in (b) tails off very slowly, and the PACF plot cuts off after lag = 1 where the value of lag = 1 is close to 1. These indicate that the data is like an AR(1) process with $\phi(B) = 1 - B$.
+
+Therefore, it would seem reasonable to difference the data, i.e. using $\nabla x_t$, and fit an ARMA model to $\nabla x_t$.
+
+
+
+
+### (e)
+
+```{r}
+x = diff(arf)
+par(mfrow=c(2,1))
+acfs = acf2(x, max.lag=100, main="Sample ACF and PACF of differenced data")
+```
+
+Comment:
+
+Now both the ACF and PACF cut off after lag = 1, and the values at lag = 1 are both small. This indicates that, after the differencing, the series becomes an AR(1) process a small $\phi$, or an MA(1) process with a small $\theta$.  
+
+
+
+
+### (f)
+
+```{r}
+# fit an AR(1) model to the differenced data
+#sarima(diff(arf), p=1, d=0, q=0, details=FALSE)$ttable
+# or fit an ARIMA(1,1,0) to the not differenced data    # same result
+sarima(arf, p=1, d=1, q=0, details=FALSE)$ttable   # diffrencing: d=1
+
+# fit an MA(1) model to the differenced data
+#sarima(diff(arf), p=0, d=0, q=1, details=FALSE)$ttable
+# or fit an ARIMA(0,1,1) to the not differenced data    # same result
+sarima(arf, p=0, d=1, q=1, details=FALSE)$ttable   # diffrencing: d=1
+```
+
+Comment:
+
+As mentioned in (e), the differenced series can be an AR(1) process a small $\phi$, or an MA(1) process with a small $\theta$. So I fit both these two models to the differenced data.
+
+The AR(1) model fits the differenced data $\nabla x_t$ well with a significant small $\phi \approx 0.17$. The fitted model is:
+$$(1-0.17B)\ \nabla x_t = w_t$$
+
+The MA(1) model also fits the differenced data $\nabla x_t$ well with a significant small $\theta \approx 0.17$. The fitted model is:
+$$\nabla x_t = (1+0.17B)\ w_t$$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
